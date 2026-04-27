@@ -77,6 +77,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "prepublishOnly": "pnpm build && pnpm test"
   },
   "peerDependencies": {
@@ -85,6 +88,7 @@
   "devDependencies": {
     "@types/node": "^22.10.2",
     "typescript": "^5.7.2",
+    "vitepress": "^1.6.4",
     "vitest": "^2.1.8",
     "zod": "^3.24.1"
   }
