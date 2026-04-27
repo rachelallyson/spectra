@@ -4,7 +4,10 @@
 > catalog; Spectra handles the rest.
 
 [![npm version](https://img.shields.io/npm/v/@rachelallyson/spectra.svg)](https://www.npmjs.com/package/@rachelallyson/spectra)
+[![docs](https://img.shields.io/badge/docs-rachelallyson.github.io%2Fspectra-5f4fff)](https://rachelallyson.github.io/spectra/)
 [![License](https://img.shields.io/npm/l/@rachelallyson/spectra.svg)](./LICENSE)
+
+📚 **Docs:** https://rachelallyson.github.io/spectra/
 
 Spectra is a tiny library for app-wide observability built around the
 [Capital One Stratum-Observability](https://github.com/capitalone/Stratum-Observability)
