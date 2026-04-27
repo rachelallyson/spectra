@@ -1,0 +1,124 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
+import type { SchemaMap } from './catalog'
+
+/**
+ * Catalog-coverage backstop. Reads a JSONL event log produced by the
+ * fileSinkPublisher, tallies hits per event name, and writes a markdown
+ * report — pair with vitest's globalSetup/globalTeardown to surface
+ * coverage drift in PR diffs.
+ *
+ * Portable: takes a schemas map as input (or `eventNames` directly) so each
+ * app reports against its own catalog. No app-specific imports here.
+ */
+
+export interface CoverageEntry {
+  name: string
+  count: number
+}
+
+export interface CoverageReport {
+  total: number
+  hit: CoverageEntry[]
+  missed: string[]
+}
+
+export function buildCoverageReport(
+  jsonlPath: string,
+  catalogNames: string[],
+  allowMissing: string[] = [],
+): CoverageReport {
+  const counts = new Map<string, number>()
+  const allow = new Set(allowMissing)
+
+  if (existsSync(jsonlPath)) {
+    const raw = readFileSync(jsonlPath, 'utf8')
+
+    for (const line of raw.split('\n')) {
+      if (!line.trim()) continue
+      try {
+        const parsed = JSON.parse(line) as { event?: string }
+        const name = parsed.event
+
+        if (typeof name === 'string') {
+          counts.set(name, (counts.get(name) ?? 0) + 1)
+        }
+      } catch {
+        // Skip malformed lines; don't fail the report on a single bad row.
+      }
+    }
+  }
+
+  const hit: CoverageEntry[] = []
+  const missed: string[] = []
+
+  for (const name of catalogNames) {
+    const count = counts.get(name) ?? 0
+
+    if (count === 0) {
+      if (!allow.has(name)) missed.push(name)
+    } else {
+      hit.push({ count, name })
+    }
+  }
+
+  hit.sort((a, b) => a.name.localeCompare(b.name))
+
+  return { hit, missed, total: catalogNames.length }
+}
+
+export function writeCoverageMarkdown(
+  report: CoverageReport,
+  filePath: string,
+  meta: { generatedAt?: Date; suiteName?: string } = {},
+): void {
+  const generated = meta.generatedAt ?? new Date()
+  const lines: string[] = []
+
+  lines.push('# Observability Coverage Report', '')
+  if (meta.suiteName) lines.push(`Suite: **${meta.suiteName}**`)
+  lines.push(`Generated: ${generated.toISOString()}`, '')
+  lines.push(`- Catalog size: **${report.total}**`)
+  lines.push(`- Hit: **${report.hit.length}**`)
+  lines.push(`- Missed: **${report.missed.length}**`, '')
+
+  if (report.missed.length > 0) {
+    lines.push('## Missed events', '')
+    lines.push('Defined in the catalog but never emitted by this suite.')
+    lines.push('Either add a test that exercises them or add the name to')
+    lines.push('`allowMissing` with a justification.')
+    lines.push('')
+    for (const name of report.missed) lines.push(`- \`${name}\``)
+    lines.push('')
+  }
+
+  lines.push('## Hit events', '')
+  lines.push('| Event | Count |')
+  lines.push('|---|---|')
+  for (const row of report.hit) lines.push(`| \`${row.name}\` | ${row.count} |`)
+
+  mkdirSync(dirname(filePath), { recursive: true })
+  writeFileSync(filePath, `${lines.join('\n')}\n`)
+}
+
+export function reportCoverage(opts: {
+  jsonlPath: string
+  markdownPath: string
+  schemas?: SchemaMap
+  catalogNames?: string[]
+  allowMissing?: string[]
+  suiteName?: string
+}): CoverageReport {
+  const names = opts.catalogNames ?? (opts.schemas ? Object.keys(opts.schemas) : [])
+
+  if (names.length === 0) {
+    throw new Error(
+      '[observability/coverage-report] reportCoverage needs `schemas` or `catalogNames`.',
+    )
+  }
+  const report = buildCoverageReport(opts.jsonlPath, names, opts.allowMissing ?? [])
+
+  writeCoverageMarkdown(report, opts.markdownPath, { suiteName: opts.suiteName })
+
+  return report
+}

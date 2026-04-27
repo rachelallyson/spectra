@@ -1,0 +1,41 @@
+{
+  "name": "@rachelallyson/observability-core",
+  "version": "0.1.0",
+  "description": "Stratum-style typed observability primitives — catalog factory, publishers, request context, test harness, coverage report. Bring your own catalog.",
+  "license": "MIT",
+  "author": "Rachel Allyson",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rachelallyson/observability-core"
+  },
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./catalog": "./src/catalog.ts",
+    "./publishers": "./src/publishers.ts",
+    "./context": "./src/context.ts",
+    "./errors": "./src/errors.ts",
+    "./wrappers": "./src/wrappers.ts",
+    "./test-harness": "./src/test-harness.ts",
+    "./coverage-report": "./src/coverage-report.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "zod": "^3.24.0 || ^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "zod": "^3.24.1"
+  }
+}
