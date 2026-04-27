@@ -1,0 +1,11 @@
+node_modules
+*.tsbuildinfo
+.DS_Store
+coverage
+docs
+examples
+.github
+.gitignore
+tsconfig.build.json
+vitest.config.ts
+src/**/*.test.ts

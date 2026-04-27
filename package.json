@@ -1,33 +1,84 @@
 {
-  "name": "@rachelallyson/observability-core",
+  "name": "@rachelallyson/spectra",
   "version": "0.1.0",
-  "description": "Stratum-style typed observability primitives — catalog factory, publishers, request context, test harness, coverage report. Bring your own catalog.",
+  "description": "Stratum-style typed observability primitives — bring your own catalog, get typed emit, publisher fan-out, request context, test harness, and coverage report.",
   "license": "MIT",
   "author": "Rachel Allyson",
+  "homepage": "https://github.com/rachelallyson/spectra#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rachelallyson/observability-core"
+    "url": "git+https://github.com/rachelallyson/spectra.git"
   },
+  "bugs": {
+    "url": "https://github.com/rachelallyson/spectra/issues"
+  },
+  "keywords": [
+    "observability",
+    "telemetry",
+    "events",
+    "typescript",
+    "zod",
+    "catalog",
+    "stratum",
+    "logging",
+    "tracing",
+    "trpc",
+    "inngest"
+  ],
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./catalog": "./src/catalog.ts",
-    "./publishers": "./src/publishers.ts",
-    "./context": "./src/context.ts",
-    "./errors": "./src/errors.ts",
-    "./wrappers": "./src/wrappers.ts",
-    "./test-harness": "./src/test-harness.ts",
-    "./coverage-report": "./src/coverage-report.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./catalog": {
+      "types": "./dist/catalog.d.ts",
+      "import": "./dist/catalog.js"
+    },
+    "./publishers": {
+      "types": "./dist/publishers.d.ts",
+      "import": "./dist/publishers.js"
+    },
+    "./context": {
+      "types": "./dist/context.d.ts",
+      "import": "./dist/context.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js"
+    },
+    "./wrappers": {
+      "types": "./dist/wrappers.d.ts",
+      "import": "./dist/wrappers.js"
+    },
+    "./test-harness": {
+      "types": "./dist/test-harness.d.ts",
+      "import": "./dist/test-harness.js"
+    },
+    "./coverage-report": {
+      "types": "./dist/coverage-report.d.ts",
+      "import": "./dist/coverage-report.js"
+    }
   },
   "files": [
+    "dist",
     "src",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm build && pnpm test"
   },
   "peerDependencies": {
     "zod": "^3.24.0 || ^4.0.0"
