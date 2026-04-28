@@ -5,6 +5,16 @@ All notable changes to this project will be documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-04-27
+
+### Fixed
+
+- Compiled output now uses explicit `.js` extensions on relative imports, so
+  the package actually loads under Node ESM. `0.2.0` (and `0.1.0`) were
+  broken at runtime — `import '@rachelallyson/spectra'` threw
+  `ERR_MODULE_NOT_FOUND` on the internal `./catalog` import. Upgrade to
+  `0.2.1`; do not use `0.2.0`.
+
 ## [0.2.0] - 2026-04-27
 
 ### Added

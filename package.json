@@ -1,6 +1,6 @@
 {
   "name": "@rachelallyson/spectra",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Stratum-style typed observability primitives — bring your own catalog, get typed emit, publisher fan-out, request context, test harness, and coverage report.",
   "license": "MIT",
   "author": "Rachel Allyson",
