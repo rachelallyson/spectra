@@ -236,6 +236,159 @@ Same rules apply, plus a few:
   `useEffect` on every state change is a noise generator. Emit on
   *user-initiated* state transitions, not on framework re-renders.
 
+## Capturing user interactions
+
+The aspiration "capture every user interaction" comes up often, and
+it's almost always Option A from the list below — not Option B.
+
+- **Option A: every meaningful user-initiated action.** Clicks on
+  actionable elements, form submits, route changes, keyboard
+  shortcuts, intentional cancels. When something goes wrong, you
+  can replay the *intent* of the session.
+- **Option B: every DOM event.** Mouse moves, scroll, focus, every
+  keystroke. Goal is pixel-fidelity reconstruction.
+
+For Option B, Spectra is the wrong tool — that's session replay
+(FullStory, LogRocket, PostHog Session Recording). Your catalog
+can't carry that volume without crushing both your budget and your
+signal-to-noise ratio.
+
+For Option A, here's the pattern that fits a typed catalog cleanly:
+
+### Data-attribute-driven dispatch
+
+Tag actionable elements in markup; one global listener forwards them.
+
+```html
+<button data-track="checkout.add_to_cart" data-track-payload='{"sku":"abc"}'>
+  Add to cart
+</button>
+```
+
+```ts
+// One file, wired once at boot.
+import { catalog } from '@/lib/observability'
+
+addEventListener('click', (event) => {
+  const target = (event.target as HTMLElement).closest<HTMLElement>('[data-track]')
+  if (!target?.dataset.track) return
+
+  const name = target.dataset.track
+  const payload = target.dataset.trackPayload
+    ? safeParse(target.dataset.trackPayload)
+    : {}
+
+  // catalog.emit will throw on unknown names — that's the contract:
+  // every data-track value must be a real catalog entry.
+  catalog.emit(name as keyof typeof catalog.schemas, payload)
+})
+
+function safeParse(s: string): Record<string, unknown> {
+  try { return JSON.parse(s) } catch { return {} }
+}
+```
+
+For form submits:
+
+```ts
+addEventListener('submit', (event) => {
+  const form = event.target as HTMLFormElement
+  if (!form.dataset.track) return
+  catalog.emit(form.dataset.track as never, {
+    field_count: form.elements.length,
+  })
+})
+```
+
+For route changes (Next.js App Router):
+
+```tsx
+'use client'
+import { usePathname } from 'next/navigation'
+import { useEffect, useRef } from 'react'
+
+export function RouteTracker() {
+  const pathname = usePathname()
+  const prev = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (prev.current && prev.current !== pathname) {
+      catalog.emit('route.changed', { from: prev.current, to: pathname })
+    }
+    prev.current = pathname
+  }, [pathname])
+
+  return null
+}
+```
+
+Three small surfaces, one global listener apiece. They cover most of
+"every meaningful user interaction" without per-component
+instrumentation.
+
+### What to put in the catalog
+
+Define entries for the *intents*, not the mechanisms.
+
+Good interaction events:
+
+- `checkout.add_to_cart`, `checkout.remove_from_cart`, `checkout.applied_promo`
+- `auth.signin_clicked`, `auth.signout_clicked`
+- `nav.menu_opened`, `nav.search_opened`, `nav.tab_changed`
+- `editor.draft_saved`, `editor.discard_clicked`
+- `support.contacted`, `support.feedback_submitted`
+
+Bad interaction events:
+
+- `button.clicked` — too generic; you've thrown away the intent.
+- `click_save_button` — describes the mechanism. If saving the draft
+  matters, it's `editor.draft_saved`. If clicking the button matters
+  for some other reason, you're probably overthinking it.
+- `keypress`, `mousemove`, `scroll` — Option B territory; not catalog
+  material.
+- `form.field_focused` — focus is rarely the meaningful event. Focus
+  loss with content (`form.field_completed`) might be.
+
+### Payload discipline (interaction-specific)
+
+For interaction events, the payload should describe the **affected
+entity** and the **parameter of the action**, not the **mechanism**.
+
+Yes:
+
+```ts
+catalog.emit('checkout.add_to_cart', { sku: 'KEYBOARD-1', quantity: 2 })
+```
+
+No:
+
+```ts
+catalog.emit('button.clicked', {
+  buttonId: 'add-to-cart',
+  mouseX: 412, mouseY: 88,
+  modifierKeys: ['Shift'],
+})
+```
+
+The first you can chart. The second you can only stare at.
+
+### Where this stops being Spectra's job
+
+A few things "user interaction" shades into that you should reach for
+a different tool for:
+
+- **Heatmaps and click-density.** FullStory, Hotjar.
+- **Session replay.** LogRocket, Sentry Replay.
+- **Frame-level perf** (LCP, INP, CLS). Use the
+  [`web-vitals`](https://github.com/GoogleChrome/web-vitals) library
+  and emit its readouts as Spectra events — that's the right shape.
+- **A/B test exposure.** Most experimentation tools have their own
+  exposure-tracking pipeline; let them own it and emit the *outcome*
+  events (which variant booked, which converted) into Spectra.
+
+Spectra's job is the *typed, durable record of intent*. Use the right
+tool for everything else.
+
 ## Coverage discipline
 
 If you've shipped `assertFullCoverage` in your test suite (which you
