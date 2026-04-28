@@ -1,26 +1,42 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import type { SchemaMap } from './catalog'
+import {
+  summarizeCoverage,
+  type CoverageReport,
+  type CoverageSnapshot,
+} from './coverage'
 
 /**
- * Catalog-coverage backstop. Reads a JSONL event log produced by the
- * fileSinkPublisher, tallies hits per event name, and writes a markdown
- * report — pair with vitest's globalSetup/globalTeardown to surface
- * coverage drift in PR diffs.
- *
- * Portable: takes a schemas map as input (or `eventNames` directly) so each
- * app reports against its own catalog. No app-specific imports here.
+ * Node-only helpers for the coverage flow: read JSONL written by
+ * fileSinkPublisher, write a markdown report. The actual tally→report
+ * reduction lives in `./coverage` so the same logic works for in-memory
+ * snapshots shipped from a browser.
  */
 
-export interface CoverageEntry {
-  name: string
-  count: number
-}
+export type { CoverageEntry, CoverageReport } from './coverage'
 
-export interface CoverageReport {
-  total: number
-  hit: CoverageEntry[]
-  missed: string[]
+function readSnapshot(jsonlPath: string): CoverageSnapshot {
+  const counts: CoverageSnapshot = {}
+
+  if (!existsSync(jsonlPath)) return counts
+  const raw = readFileSync(jsonlPath, 'utf8')
+
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue
+    try {
+      const parsed = JSON.parse(line) as { event?: string }
+      const name = parsed.event
+
+      if (typeof name === 'string') {
+        counts[name] = (counts[name] ?? 0) + 1
+      }
+    } catch {
+      // Skip malformed lines; don't fail the report on a single bad row.
+    }
+  }
+
+  return counts
 }
 
 export function buildCoverageReport(
@@ -28,43 +44,7 @@ export function buildCoverageReport(
   catalogNames: string[],
   allowMissing: string[] = [],
 ): CoverageReport {
-  const counts = new Map<string, number>()
-  const allow = new Set(allowMissing)
-
-  if (existsSync(jsonlPath)) {
-    const raw = readFileSync(jsonlPath, 'utf8')
-
-    for (const line of raw.split('\n')) {
-      if (!line.trim()) continue
-      try {
-        const parsed = JSON.parse(line) as { event?: string }
-        const name = parsed.event
-
-        if (typeof name === 'string') {
-          counts.set(name, (counts.get(name) ?? 0) + 1)
-        }
-      } catch {
-        // Skip malformed lines; don't fail the report on a single bad row.
-      }
-    }
-  }
-
-  const hit: CoverageEntry[] = []
-  const missed: string[] = []
-
-  for (const name of catalogNames) {
-    const count = counts.get(name) ?? 0
-
-    if (count === 0) {
-      if (!allow.has(name)) missed.push(name)
-    } else {
-      hit.push({ count, name })
-    }
-  }
-
-  hit.sort((a, b) => a.name.localeCompare(b.name))
-
-  return { hit, missed, total: catalogNames.length }
+  return summarizeCoverage(readSnapshot(jsonlPath), catalogNames, allowMissing)
 }
 
 export function writeCoverageMarkdown(

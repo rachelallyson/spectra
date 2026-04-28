@@ -137,7 +137,7 @@ catalog.setPublishers([fileSinkPublisher('./obs-coverage/events.jsonl')])
 ```ts
 // vitest-global.ts
 import { rmSync } from 'node:fs'
-import { reportCoverage } from '@rachelallyson/spectra'
+import { reportCoverage } from '@rachelallyson/spectra/coverage-report'
 import { catalog } from './src/observability/catalog'
 
 export async function setup() {

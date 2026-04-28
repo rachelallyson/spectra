@@ -14,9 +14,12 @@ export {
   type TestHarness,
 } from './test-harness'
 export {
-  buildCoverageReport,
-  reportCoverage,
-  writeCoverageMarkdown,
+  coveragePublisher,
+  formatCoverageSummary,
+  mergeCoverage,
+  summarizeCoverage,
   type CoverageEntry,
+  type CoveragePublisher,
   type CoverageReport,
-} from './coverage-report'
+  type CoverageSnapshot,
+} from './coverage'

@@ -1,6 +1,6 @@
 {
   "name": "@rachelallyson/spectra",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Stratum-style typed observability primitives — bring your own catalog, get typed emit, publisher fan-out, request context, test harness, and coverage report.",
   "license": "MIT",
   "author": "Rachel Allyson",
@@ -61,6 +61,10 @@
     "./test-harness": {
       "types": "./dist/test-harness.d.ts",
       "import": "./dist/test-harness.js"
+    },
+    "./coverage": {
+      "types": "./dist/coverage.d.ts",
+      "import": "./dist/coverage.js"
     },
     "./coverage-report": {
       "types": "./dist/coverage-report.d.ts",

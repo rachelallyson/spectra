@@ -118,7 +118,40 @@ interface TestHarness<TMap> {
 }
 ```
 
-## Coverage report
+## Coverage (isomorphic)
+
+```ts
+function coveragePublisher<TMap>(): Publisher<TMap> & {
+  snapshot(): Record<string, number>
+  reset(): void
+}
+
+function mergeCoverage(snapshots: Record<string, number>[]): Record<string, number>
+
+function summarizeCoverage(
+  snapshot: Record<string, number>,
+  catalogNames: string[],
+  allowMissing?: string[],
+): CoverageReport
+
+function formatCoverageSummary(report: CoverageReport): string
+
+interface CoverageReport {
+  total: number
+  hit: Array<{ name: string; count: number }>
+  missed: string[]
+}
+```
+
+Tally hits in memory on either side of the wire. Browser ships its
+`snapshot()` to the server (e.g. via `navigator.sendBeacon`); server merges
+with its own snapshot via `mergeCoverage`, then `summarizeCoverage` against
+the catalog. `formatCoverageSummary` returns a one-liner like
+`Coverage: 12/15 (80%) — missed: foo, bar, …` for logs or CI annotations.
+
+## Coverage report (Node-only)
+
+Import from `@rachelallyson/spectra/coverage-report`.
 
 ```ts
 function reportCoverage(opts: {
@@ -129,12 +162,6 @@ function reportCoverage(opts: {
   allowMissing?: string[]
   suiteName?: string
 }): CoverageReport
-
-interface CoverageReport {
-  total: number
-  hit: Array<{ name: string; count: number }>
-  missed: string[]
-}
 ```
 
 Reads a JSONL event log written by `fileSinkPublisher`, counts hits per
