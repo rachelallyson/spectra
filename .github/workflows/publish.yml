@@ -26,6 +26,32 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # Pack the tarball and import every public entrypoint from a clean
+      # scratch project. Catches broken `exports` map, missing `.js`
+      # extensions in emit, accidental `node:`-only code in isomorphic
+      # subpaths, etc. — failures here block the publish.
+      - name: Smoke-test packaged entrypoints
+        run: |
+          set -euo pipefail
+          pnpm pack
+          TARBALL="$(ls rachelallyson-spectra-*.tgz)"
+          mkdir -p /tmp/spectra-smoke && cd /tmp/spectra-smoke
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE/$TARBALL" zod >/dev/null
+          for ENTRY in \
+            "@rachelallyson/spectra" \
+            "@rachelallyson/spectra/catalog" \
+            "@rachelallyson/spectra/publishers" \
+            "@rachelallyson/spectra/publishers/node" \
+            "@rachelallyson/spectra/context" \
+            "@rachelallyson/spectra/errors" \
+            "@rachelallyson/spectra/wrappers" \
+            "@rachelallyson/spectra/test-harness" \
+            "@rachelallyson/spectra/coverage" \
+            "@rachelallyson/spectra/coverage-report"; do
+            echo "→ $ENTRY"
+            node -e "import('$ENTRY').then(m => { if (Object.keys(m).length === 0) { console.error('empty module: $ENTRY'); process.exit(1) } })"
+          done
       - run: pnpm publish --no-git-checks --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
