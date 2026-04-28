@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import type { CatalogEvent, SchemaMap } from './catalog'
-import type { Publisher } from './publishers'
+import type { CatalogEvent, SchemaMap } from './catalog.js'
+import type { Publisher } from './publishers.js'
 
 /**
  * Append-only JSON-lines sink. Useful in dev/test to keep a durable record of

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { defineCatalog } from './catalog'
+import { defineCatalog } from './catalog.js'
 import {
   coveragePublisher,
   formatCoverageSummary,
   mergeCoverage,
   summarizeCoverage,
-} from './coverage'
+} from './coverage.js'
 
 const schemas = {
   'checkout.completed': z.object({ orderId: z.string() }),

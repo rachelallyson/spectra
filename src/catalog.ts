@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import type { Publisher } from './publishers'
+import type { Publisher } from './publishers.js'
 
 /**
  * Portable catalog factory. Each app calls defineCatalog with its own map of

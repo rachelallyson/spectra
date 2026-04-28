@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
-import type { Catalog, CatalogEvent, SchemaMap } from './catalog'
-import { memoryPublisher } from './publishers'
+import type { Catalog, CatalogEvent, SchemaMap } from './catalog.js'
+import { memoryPublisher } from './publishers.js'
 
 /**
  * Test harness for catalog-driven observability. Three jobs:

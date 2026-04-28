@@ -1,5 +1,5 @@
-import type { CatalogEvent, SchemaMap } from './catalog'
-import type { Publisher } from './publishers'
+import type { CatalogEvent, SchemaMap } from './catalog.js'
+import type { Publisher } from './publishers.js'
 
 /**
  * Isomorphic catalog-coverage primitives. The publisher tallies hit counts per

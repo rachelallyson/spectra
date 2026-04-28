@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import type { SchemaMap } from './catalog'
+import type { SchemaMap } from './catalog.js'
 import {
   summarizeCoverage,
   type CoverageReport,
   type CoverageSnapshot,
-} from './coverage'
+} from './coverage.js'
 
 /**
  * Node-only helpers for the coverage flow: read JSONL written by
@@ -14,7 +14,7 @@ import {
  * snapshots shipped from a browser.
  */
 
-export type { CoverageEntry, CoverageReport } from './coverage'
+export type { CoverageEntry, CoverageReport } from './coverage.js'
 
 function readSnapshot(jsonlPath: string): CoverageSnapshot {
   const counts: CoverageSnapshot = {}

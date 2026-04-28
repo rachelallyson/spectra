@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { defineCatalog } from './catalog'
-import { createTestHarness } from './test-harness'
-import { createWrappers } from './wrappers'
+import { defineCatalog } from './catalog.js'
+import { createTestHarness } from './test-harness.js'
+import { createWrappers } from './wrappers.js'
 
 const schemas = {
   'demo.job.failed': z.object({ durationMs: z.number(), errorMessage: z.string(), jobName: z.string() }),

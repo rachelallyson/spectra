@@ -1,6 +1,6 @@
 import type { z } from 'zod'
-import type { Catalog, SchemaMap } from './catalog'
-import { captureError } from './errors'
+import type { Catalog, SchemaMap } from './catalog.js'
+import { captureError } from './errors.js'
 
 /**
  * Wrapper factories built against an arbitrary catalog. The app passes its

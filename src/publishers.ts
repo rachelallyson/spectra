@@ -1,4 +1,4 @@
-import type { CatalogEvent, SchemaMap } from './catalog'
+import type { CatalogEvent, SchemaMap } from './catalog.js'
 
 /**
  * A publisher fans an event out to a single backend — Axiom, Sentry breadcrumbs,
