@@ -29,9 +29,12 @@ npm install "$REPO_ROOT/$TARBALL" zod >/dev/null 2>&1
 ENTRIES=(
   "@rachelallyson/spectra"
   "@rachelallyson/spectra/catalog"
+  "@rachelallyson/spectra/schemas"
   "@rachelallyson/spectra/publishers"
   "@rachelallyson/spectra/publishers/node"
+  "@rachelallyson/spectra/publisher-utils"
   "@rachelallyson/spectra/http-publisher"
+  "@rachelallyson/spectra/otel"
   "@rachelallyson/spectra/context"
   "@rachelallyson/spectra/errors"
   "@rachelallyson/spectra/wrappers"

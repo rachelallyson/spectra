@@ -2,11 +2,30 @@
 
 Every export with its signature.
 
-## `defineCatalog(schemas)`
+## `defineCatalog(schemas, options?)`
 
 ```ts
-function defineCatalog<TMap extends SchemaMap>(schemas: TMap): Catalog<TMap>
+function defineCatalog<TMap extends SchemaMap>(
+  schemas: TMap,
+  options?: CatalogOptions<TMap>,
+): Catalog<TMap>
+
+interface CatalogOptions<TMap> {
+  /** Route publisher errors to Sentry, etc. Default: console.error. */
+  onPublisherError?: (info: { publisher; event; error }) => void
+  /** 'strict' (default), 'off', or a per-emit decision function. */
+  validate?: ValidationMode<TMap>
+}
+
+type ValidationMode<TMap> =
+  | 'strict'  // every emit runs the Zod schema (default)
+  | 'off'     // skip Zod entirely; payload forwarded as-is
+  | (<N extends keyof TMap>(name: N, payload: unknown) => boolean)
 ```
+
+Unknown event names always throw with a "Did you mean…?" suggestion,
+even with `validate: 'off'` — the name check is the most valuable
+part of strict-mode parity for catching typos.
 
 Returns a typed emitter bundle:
 
@@ -44,6 +63,78 @@ Used by the test harness; rarely registered directly.
 **`fileSinkPublisher(filePath)`** — appends one JSON line per event.
 Pair with `reportCoverage` for catalog-coverage reports. Node-only; import
 from `@rachelallyson/spectra/publishers/node`.
+
+## Schema helpers
+
+Import from `@rachelallyson/spectra` or `@rachelallyson/spectra/schemas`.
+
+```ts
+function withBase<TBase extends ZodObject, TEvents>(
+  base: TBase,
+  events: TEvents,
+): { [K in keyof TEvents]: ZodObject<TBase['shape'] & TEvents[K]['shape']> }
+
+function mergeSchemas<T extends SchemaMap[]>(...maps: T): T[number]
+```
+
+`withBase(base, events)` merges `base`'s shape into every entry —
+useful for shared envelope fields (`requestId`, `tenantId`, `env`).
+`mergeSchemas(...maps)` combines per-domain schema maps; throws on
+duplicate keys.
+
+## HTTP publisher
+
+```ts
+function httpPublisher<TMap>(options: {
+  url: string
+  fetch?: typeof fetch
+  batch?: { maxSize?: number; maxIntervalMs?: number }
+  useBeacon?: boolean   // browser sendBeacon on visibilitychange
+  headers?: Record<string, string>
+  onError?: (err: unknown) => void
+}): Publisher<TMap> & { flush(): Promise<void> }
+```
+
+Isomorphic. `flush()` drains the buffer and clears the timer.
+
+## Publisher utilities
+
+Import from `@rachelallyson/spectra` or `@rachelallyson/spectra/publisher-utils`.
+
+```ts
+function sampledPublisher<TMap>(
+  rate: number,                          // 0..1
+  inner: Publisher<TMap>,
+  options?: {
+    keep?: (event: CatalogEvent<TMap>) => boolean
+    random?: () => number
+  },
+): Publisher<TMap>
+
+function redactingPublisher<TMap>(
+  paths: string[],                       // dot-separated, e.g. 'user.email'
+  inner: Publisher<TMap>,
+  options?: { replacement?: unknown },
+): Publisher<TMap>
+```
+
+Both wrap any other publisher and compose freely.
+
+## OTel publisher
+
+Import from `@rachelallyson/spectra/otel`. `@opentelemetry/api` is an
+optional peer.
+
+```ts
+function otelPublisher<TMap>(options: {
+  trace: import('@opentelemetry/api').TraceAPI
+  namePrefix?: string                    // default 'spectra.'
+  maxDepth?: number                      // default 3
+  encode?: (event) => Record<string, AttrValue>
+}): Publisher<TMap>
+```
+
+Adds a span event on the active span. Outside a span: silent no-op.
 
 ## Request context
 
@@ -110,6 +201,8 @@ interface TestHarness<TMap> {
   uninstall(): void
   captured(): CatalogEvent<TMap>[]
   expectSequence(expected: Array<keyof TMap>, opts?: { allowGaps?: boolean }): void
+  expectEmitted<N>(name: N, payload?: Partial<TMap[N]>): void
+  never<N>(name: N): void
   findFirst<N>(name: N): CatalogEvent<TMap, N> | undefined
   coverageReport(): { hit: ...; missed: ... }
   assertFullCoverage(allowMissing?: Array<keyof TMap>): void
@@ -117,6 +210,14 @@ interface TestHarness<TMap> {
   resetCoverage(): void
 }
 ```
+
+`install()` snapshots the existing publisher list and prepends the
+harness's own publishers — so any pre-registered sink (e.g. a per-worker
+`fileSinkPublisher` from a vitest setup) keeps receiving events during
+tests. `uninstall()` restores the original list.
+
+`expectEmitted` checks for at least one matching event, optionally with
+a partial payload; `never` asserts the event was *not* emitted.
 
 ## Coverage (isomorphic)
 

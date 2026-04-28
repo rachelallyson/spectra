@@ -53,7 +53,12 @@ export default defineConfig({
       },
       {
         text: 'Integrations',
-        items: [{ text: 'Recipes', link: '/recipes' }],
+        items: [
+          { text: 'Recipes (tRPC, Inngest, Vitest)', link: '/recipes' },
+          { text: 'Vendor publishers', link: '/vendors' },
+          { text: 'Custom publisher', link: '/custom-publisher' },
+          { text: 'Browser → server coverage', link: '/browser-coverage' },
+        ],
       },
       {
         text: 'Examples',
