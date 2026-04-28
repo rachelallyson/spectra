@@ -5,7 +5,8 @@
     "rootDir": "../..",
     "paths": {
       "@rachelallyson/spectra": ["../../src/index.ts"],
-      "@rachelallyson/spectra/*": ["../../src/*.ts"]
+      "@rachelallyson/spectra/*": ["../../src/*.ts"],
+      "zod": ["../../node_modules/zod"]
     }
   },
   "include": ["index.ts"]
