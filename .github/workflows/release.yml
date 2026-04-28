@@ -22,11 +22,13 @@ jobs:
         with:
           version: 9
 
+      # No `registry-url` — changesets/action handles npm auth via .npmrc
+      # using NPM_TOKEN. Setting registry-url here would have setup-node
+      # write a conflicting .npmrc.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       - run: pnpm install --frozen-lockfile
 
@@ -43,8 +45,4 @@ jobs:
           title: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # The changesets action checks `NPM_TOKEN`; npm itself reads
-          # `NODE_AUTH_TOKEN` from the .npmrc that setup-node generated.
-          # Set both from the same secret.
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
