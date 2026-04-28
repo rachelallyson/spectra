@@ -90,16 +90,20 @@
     "typecheck:examples": "tsc --noEmit -p examples/basic/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint:package": "publint && attw --pack . --profile esm-only",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "prepublishOnly": "pnpm build && pnpm test"
+    "prepublishOnly": "pnpm build && pnpm test && pnpm lint:package"
   },
   "peerDependencies": {
     "zod": "^3.24.0 || ^4.0.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
     "@types/node": "^22.10.2",
+    "happy-dom": "^20.9.0",
+    "publint": "^0.3.18",
     "typescript": "^5.7.2",
     "vitepress": "^1.6.4",
     "vitest": "^2.1.8",

@@ -9,6 +9,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Test against both supported Zod major versions so we catch divergence.
+        zod: ['^3.24.1', '^4.0.0']
+    name: test (zod ${{ matrix.zod }})
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -19,6 +25,26 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Pin zod ${{ matrix.zod }}
+        run: pnpm add -Dw "zod@${{ matrix.zod }}"
       - run: pnpm typecheck
+      - run: pnpm typecheck:examples
       - run: pnpm test
       - run: pnpm build
+
+  lint-package:
+    runs-on: ubuntu-latest
+    name: package linting
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: publint + attw
+        run: pnpm lint:package
