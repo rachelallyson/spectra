@@ -22,15 +22,19 @@ jobs:
         with:
           version: 9
 
-      # No `registry-url` — changesets/action handles npm auth via .npmrc
-      # using NPM_TOKEN. Setting registry-url here would have setup-node
-      # write a conflicting .npmrc.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      # Write the publish auth directly so neither setup-node's
+      # interpolated .npmrc nor pnpm's quirks can lose it.
+      - name: Configure npm auth
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
 
       # The action either:
       #   - Opens / updates a "Version Packages" PR if there are pending
