@@ -19,8 +19,6 @@ jobs:
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       # setup-node writes ~/.npmrc with `_authToken=${NODE_AUTH_TOKEN}`;
       # npm reads NODE_AUTH_TOKEN from env when running publish.
