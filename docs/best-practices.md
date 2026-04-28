@@ -372,6 +372,186 @@ catalog.emit('button.clicked', {
 
 The first you can chart. The second you can only stare at.
 
+### The full interaction taxonomy
+
+The data-attribute pattern handles clicks. For "every meaningful
+user-initiated action" you need a few more listeners. Here's the
+complete checklist with patterns for each.
+
+| Action | Listener | Catalog example |
+|---|---|---|
+| Click on actionable element | `click` + `[data-track]` | `checkout.add_to_cart` |
+| Form submission | `submit` + `[data-track]` | `auth.signin_submitted` |
+| Route change (SPA) | router hook | `route.changed` |
+| Keyboard shortcut | `keydown` w/ hotkey match | `editor.saved_via_shortcut` |
+| Intentional cancel | `[data-track]` on cancel buttons / `keydown` on Esc | `checkout.canceled` |
+| Modal / dialog open–close | listener on dialog `open` / `close` | `support.modal_opened` |
+| Copy / paste (when meaningful) | `copy`, `paste` listeners | `editor.content_pasted` |
+| File upload | `change` on `<input type=file>` | `import.file_selected` |
+| Drag-drop | `drop` listener | `import.file_dropped` |
+| In-page tab switch | listener on tab roving | `nav.tab_changed` |
+| Right-click / context menu | `contextmenu` (rare; usually skip) | — |
+| Page unload | `pagehide` / `beforeunload` | `session.ended` |
+
+Each row is a small, contained pattern. The accumulating effect is
+that a moderately complex app ends up with **30–40 interaction
+events**, which sounds like a lot until you realize each one is one
+line of `data-track` markup or one wired listener — and it's the
+*cap*, not the per-feature cost.
+
+#### Keyboard shortcuts
+
+Wire one global `keydown` listener with a small hotkey table. Don't
+emit on every keystroke — emit on intentional shortcut presses.
+
+```ts
+type Shortcut = { key: string; mod?: 'ctrl' | 'meta' | 'either'; event: keyof typeof catalog.schemas }
+
+const shortcuts: Shortcut[] = [
+  { key: 's', mod: 'either', event: 'editor.saved_via_shortcut' },
+  { key: 'Escape', event: 'modal.dismissed_via_shortcut' },
+  { key: '/', event: 'nav.search_opened_via_shortcut' },
+  { key: 'k', mod: 'either', event: 'nav.command_palette_opened' },
+]
+
+addEventListener('keydown', (event) => {
+  for (const s of shortcuts) {
+    if (event.key !== s.key) continue
+    if (s.mod === 'ctrl' && !event.ctrlKey) continue
+    if (s.mod === 'meta' && !event.metaKey) continue
+    if (s.mod === 'either' && !(event.ctrlKey || event.metaKey)) continue
+
+    catalog.emit(s.event, {})  // payload depends on the event
+    return
+  }
+})
+```
+
+Don't try to log "the user pressed Q on the keyboard." Log "the user
+intentionally invoked the save shortcut" — typed event, named after
+the intent.
+
+#### Intentional cancels
+
+Cancels are the most-forgotten user-initiated action. Users
+abandoning a form is signal; users *cancelling* a flow is *louder*
+signal — they engaged enough to start, then chose not to finish.
+
+```html
+<!-- Cancel buttons get the same data-track pattern. -->
+<button data-track="checkout.canceled" data-track-payload='{"at_step":"shipping"}'>
+  Cancel
+</button>
+<button data-track="support.contact_form_dismissed">Close</button>
+```
+
+Plus the Escape-key variant via the keyboard-shortcut listener
+above. Same event, two trigger paths.
+
+#### Modal / dialog open–close
+
+Use the native `<dialog>` element if you can; it gives you `'open'`
+and `'close'` events for free.
+
+```ts
+document.querySelectorAll<HTMLDialogElement>('dialog[data-track]').forEach((dialog) => {
+  dialog.addEventListener('close', () => {
+    catalog.emit(`${dialog.dataset.track!}.closed` as never, {
+      reason: dialog.returnValue || 'dismissed',
+    })
+  })
+})
+```
+
+For framework modals (React's `<Dialog>` from headless-ui, etc.),
+emit on `onOpenChange`.
+
+#### Copy / paste (when meaningful)
+
+Copy/paste is mostly Option B territory — but there are real cases
+where it's product-meaningful: pasting an invitation link,
+copy-from-confirmation-page after a transaction, paste detection in
+secure forms.
+
+```ts
+document.querySelectorAll<HTMLElement>('[data-track-paste]').forEach((el) => {
+  el.addEventListener('paste', () => {
+    catalog.emit(el.dataset.trackPaste! as never, {})
+  })
+})
+```
+
+If the rule is "track paste anywhere in the app," that's noise. If
+the rule is "track paste on the invitation-link field" — that's
+signal.
+
+#### File inputs and drag-drop
+
+```ts
+addEventListener('change', (event) => {
+  const target = event.target as HTMLInputElement
+  if (target.type !== 'file' || !target.dataset.track) return
+  catalog.emit(target.dataset.track as never, {
+    file_count: target.files?.length ?? 0,
+    total_bytes: Array.from(target.files ?? []).reduce((n, f) => n + f.size, 0),
+  })
+})
+
+addEventListener('drop', (event) => {
+  const target = (event.target as HTMLElement).closest<HTMLElement>('[data-track-drop]')
+  if (!target) return
+  catalog.emit(target.dataset.trackDrop! as never, {
+    file_count: event.dataTransfer?.files.length ?? 0,
+  })
+})
+```
+
+Note the *count and bytes*, not the file names. File names are
+sometimes PII; the size and count are the operational data you need.
+
+#### Page unload
+
+`pagehide` is more reliable than `beforeunload`. Pair with
+`navigator.sendBeacon` since the page is going away.
+
+```ts
+addEventListener('pagehide', () => {
+  catalog.emit('session.ended', { durationMs: Math.round(performance.now()) })
+  // Force any buffered httpPublisher batches out before the page dies.
+  void httpPub.flush()
+})
+```
+
+### One file holds it all
+
+The 30–40 interaction events feel like a lot until you see them all
+at one boot point. The convention I recommend: one
+`src/observability/interactions.ts` that wires every listener at
+import time, and is imported once from the app entry.
+
+```ts
+// src/observability/interactions.ts
+import { catalog, httpPub } from './catalog'
+
+// ... all the listeners above ...
+
+// Single export so the import has a side effect at boot.
+export const interactionsBound = true
+```
+
+```ts
+// src/main.tsx
+import './observability/interactions'  // wires everything
+import App from './App'
+// ...
+```
+
+If a primitive that wraps these listener-wiring patterns into one
+function (`bindInteractions(catalog, options)`) would save you
+boilerplate, that's a friction-driven addition we can pull into core
+once you've integrated. Until then, the patterns above are
+copy-paste ready and zero-dep.
+
 ## Capturing successful loads and visual readiness
 
 Most observability instinct goes toward failures: errors, timeouts,
