@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    "paths": {
+      "@rachelallyson/spectra": ["../../src/index.ts"],
+      "@rachelallyson/spectra/*": ["../../src/*.ts"]
+    }
+  },
+  "include": ["index.ts"]
+}

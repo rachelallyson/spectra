@@ -4,6 +4,8 @@
 > catalog; Spectra handles the rest.
 
 [![npm version](https://img.shields.io/npm/v/@rachelallyson/spectra.svg)](https://www.npmjs.com/package/@rachelallyson/spectra)
+[![npm provenance](https://img.shields.io/badge/npm-provenance-3b873e?logo=npm)](https://docs.npmjs.com/generating-provenance-statements)
+[![CI](https://github.com/rachelallyson/spectra/actions/workflows/ci.yml/badge.svg)](https://github.com/rachelallyson/spectra/actions/workflows/ci.yml)
 [![docs](https://img.shields.io/badge/docs-rachelallyson.github.io%2Fspectra-5f4fff)](https://rachelallyson.github.io/spectra/)
 [![License](https://img.shields.io/npm/l/@rachelallyson/spectra.svg)](./LICENSE)
 
@@ -46,13 +48,34 @@ coverage report flags which catalog entries no test ever exercises.
 Spectra ships the patterns, not the framework. ~600 lines, no runtime
 dependencies, full type safety, designed to be read in one sitting.
 
+## How is this different from…
+
+- **OpenTelemetry** — OTel is the right answer for distributed traces and
+  vendor-portable metrics. It is *not* a great fit for "here are the 60
+  named business events our app cares about, with typed payloads."
+  Spectra sits *above* OTel: catalog-defined events, validated at the
+  edge, fanned out to whatever sinks you already use.
+- **pino / winston** — log lines, not events. No catalog, no schema, no
+  test-time coverage report telling you which events are unreachable.
+- **PostHog / Segment / Amplitude SDKs** — vendor-specific. Spectra is
+  vendor-neutral by construction: write a 20-line `Publisher` and any
+  vendor becomes a fan-out target. Use as many as you want.
+- **Stratum-Observability** (Capital One) — same patterns. Spectra is
+  the small, isomorphic, zero-dep TypeScript take, with first-class
+  test harness and browser support.
+
 ## Features
 
 - **Typed catalog factory** — `defineCatalog(schemas)` returns a fully-
   typed emitter. TS rejects bad event names; Zod validates payloads at
   runtime.
-- **Publishers** — `console`, `memory` (for tests), `fileSink` (for
-  coverage reports). Bring your own for Sentry / Axiom / PostHog.
+- **Publishers** — `console`, `memory` (for tests), `http` (browser
+  → server fan-out, with `sendBeacon` on unload), `fileSink` (Node-only
+  durable JSONL). Bring your own for Sentry / Axiom / PostHog.
+- **Coverage** — `coveragePublisher()` tallies hit counts in memory on
+  either side of the wire; `mergeCoverage` combines a browser snapshot
+  with a server snapshot; `formatCoverageSummary(report)` returns
+  `Coverage: 12/15 (80%) — missed: foo, bar, …` for CI annotations.
 - **Request context** — `createContext<T>()` returns an AsyncLocalStorage
   store generic over your app's shape. Set once at the edge, read anywhere.
 - **Error pathway** — `captureError` is intentionally separate from
@@ -65,6 +88,10 @@ dependencies, full type safety, designed to be read in one sitting.
   flow tests; `assertFullCoverage([...])` for catalog backstop.
 - **Coverage report** — Vitest globalTeardown reads a JSONL event log and
   writes `obs-coverage.md` so PR diffs surface drift.
+- **Browser-safe core** — root entry, `/publishers`, `/coverage`, `/catalog`,
+  `/errors`, `/wrappers` ship without `node:` imports. Node-only sinks
+  live behind explicit subpaths (`/publishers/node`, `/coverage-report`,
+  `/context`, `/test-harness`).
 
 ## Install
 
