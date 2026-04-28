@@ -1,0 +1,40 @@
+name: Changeset check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+# The Changesets bot (https://github.com/apps/changeset-bot) is the
+# upstream-recommended way to do this and posts a much nicer comment.
+# This workflow is a self-contained backstop: it warns (doesn't fail)
+# when a PR has no changeset, so PRs labeled `no-changeset` (e.g.
+# pure-CI tweaks, version-packages PRs from changesets/action) skip
+# the warning entirely.
+jobs:
+  check:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-changeset') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Look for a changeset on this branch
+        run: |
+          set -e
+          git fetch origin main:refs/remotes/origin/main
+          # Any new .changeset/*.md (excluding README/config) added on this branch?
+          NEW=$(git diff --name-only --diff-filter=A origin/main...HEAD \
+            | grep -E '^\.changeset/.+\.md$' \
+            | grep -v '^\.changeset/README.md$' \
+            | grep -v '^\.changeset/config.json$' \
+            || true)
+          if [ -z "$NEW" ]; then
+            echo "::warning::No changeset added on this branch."
+            echo "If this PR has user-visible changes, run \`pnpm changeset\` and commit the file."
+            echo "If it's an internal-only change (CI, refactor, docs), add the \`no-changeset\` label."
+          else
+            echo "Found changesets:"
+            echo "$NEW"
+          fi

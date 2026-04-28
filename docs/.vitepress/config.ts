@@ -28,10 +28,11 @@ export default defineConfig({
       { text: 'API', link: '/api' },
       { text: 'Examples', link: '/examples' },
       {
-        text: 'v0.1.0',
+        text: 'Links',
         items: [
           { text: 'Changelog', link: 'https://github.com/rachelallyson/spectra/blob/main/CHANGELOG.md' },
           { text: 'npm', link: 'https://www.npmjs.com/package/@rachelallyson/spectra' },
+          { text: 'GitHub', link: 'https://github.com/rachelallyson/spectra' },
         ],
       },
     ],

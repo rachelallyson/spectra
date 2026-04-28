@@ -15,7 +15,7 @@ Spectra is a tiny library for app-wide observability built around the
 [Capital One Stratum-Observability](https://github.com/capitalone/Stratum-Observability)
 patterns: a typed catalog as the single source of truth, runtime-validated
 `emit()`, and publisher fan-out to whatever vendors you use. No runtime
-dependencies (zod is a peer); ~600 lines of TypeScript; full IDE
+dependencies (zod is a peer); ~1.7k lines of TypeScript; full IDE
 autocomplete on every event.
 
 ```ts
@@ -45,8 +45,8 @@ named, typed entry in a catalog. The catalog becomes the contract: every
 emit validates against it, tests assert sequences against it, and a
 coverage report flags which catalog entries no test ever exercises.
 
-Spectra ships the patterns, not the framework. ~600 lines, no runtime
-dependencies, full type safety, designed to be read in one sitting.
+Spectra ships the patterns, not the framework. No runtime dependencies; full type safety; small enough to read in
+one sitting.
 
 ## How is this different from…
 
