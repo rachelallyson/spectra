@@ -372,10 +372,157 @@ catalog.emit('button.clicked', {
 
 The first you can chart. The second you can only stare at.
 
-### Where this stops being Spectra's job
+## Capturing successful loads and visual readiness
 
-A few things "user interaction" shades into that you should reach for
-a different tool for:
+Most observability instinct goes toward failures: errors, timeouts,
+exceptions. But without a positive signal, **you can't tell "no
+failures" from "no traffic."** That silent failure mode — alerts are
+quiet, dashboards look healthy, nothing is actually happening — is
+how outages survive the first 20 minutes.
+
+The fix: emit positive readiness events alongside the failure ones.
+
+```ts
+// Events that say "the user can use the product right now."
+'app.boot':            z.object({ buildId: z.string() }),
+'app.ready':           z.object({ ttiMs: z.number() }),  // time to interactive
+'app.hydrated':        z.object({ durationMs: z.number() }),
+'route.painted':       z.object({ route: z.string(), lcpMs: z.number() }),
+'image.loaded_above_fold': z.object({ src: z.string() }),
+```
+
+Concrete patterns:
+
+**App lifecycle.** Emit at three checkpoints, not just on errors.
+
+```ts
+// At the top of your client entry:
+catalog.emit('app.boot', { buildId: import.meta.env.VITE_BUILD_ID })
+
+// After hydration finishes:
+const start = performance.now()
+hydrateRoot(root, <App />, {
+  onRecoverableError: (err) => captureError(err, { phase: 'hydration' }),
+})
+queueMicrotask(() => {
+  catalog.emit('app.hydrated', { durationMs: performance.now() - start })
+})
+
+// When the page becomes interactive:
+if (document.readyState === 'complete') {
+  emitReady()
+} else {
+  addEventListener('load', emitReady)
+}
+function emitReady() {
+  catalog.emit('app.ready', { ttiMs: Math.round(performance.now()) })
+}
+```
+
+The first time `app.boot` count drops in production while
+`*.failed` count is flat, you'll know exactly what happened: a CDN
+cache miss, an asset 404, a CSP violation. *Negative* signal alone
+can't show you that — only the missing positive signal can.
+
+**Web Vitals as events.** Wrap the `web-vitals` library; each readout
+becomes a typed event with a quality bucket.
+
+```ts
+import { onLCP, onINP, onCLS } from 'web-vitals/attribution'
+
+function reportVital(metric: { name: string; value: number; rating: 'good' | 'needs-improvement' | 'poor' }) {
+  catalog.emit('perf.web_vital', {
+    name: metric.name as 'LCP' | 'INP' | 'CLS',
+    rating: metric.rating,
+    value: metric.value,
+  })
+}
+
+onLCP(reportVital)
+onINP(reportVital)
+onCLS(reportVital)
+```
+
+The `rating` field is the actionable one — your alert can fire on
+`rating: 'poor'` rate, not on raw numbers (which drift with hardware
+and network).
+
+**Above-the-fold visibility.** For pages where a specific element
+*needs* to appear (the search results, the order summary, the
+checkout button), use `IntersectionObserver` to confirm it actually
+rendered and was visible — not just present in the DOM.
+
+```ts
+const observer = new IntersectionObserver(
+  (entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting && e.intersectionRatio > 0.5) {
+        const id = (e.target as HTMLElement).dataset.visible
+        if (id) catalog.emit('ui.element_visible', { id })
+        observer.unobserve(e.target)  // one-shot
+      }
+    }
+  },
+  { threshold: 0.5 },
+)
+
+// Mark the elements you care about:
+document.querySelectorAll('[data-visible]').forEach((el) => observer.observe(el))
+```
+
+Markup:
+
+```html
+<div data-visible="checkout.summary">…order summary…</div>
+<div data-visible="search.results_first_page">…first page of results…</div>
+```
+
+**Successful network calls — selectively.** The lifecycle wrappers
+(`createWrappers`) already emit `*.succeeded` for tRPC procedures
+and Inngest jobs you wrap. **Don't** emit on every `fetch`. Do emit
+on the handful of network calls that represent product correctness
+(payment processed, third-party API responded, search index
+refreshed).
+
+**Health-by-absence.** A `<ErrorBoundary>` that emits *only* on
+crash works as a negative signal — its silence is what tells you
+the UI tree is healthy. Pair it with a positive `app.ready` so the
+silence isn't just "nobody's running the app."
+
+```tsx
+class ObservedBoundary extends Component {
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    catalog.emit('ui.crashed', {
+      component: info.componentStack?.split('\n')[1]?.trim() ?? 'unknown',
+      message: error.message,
+    })
+    captureError(error, info)
+  }
+  render() {
+    return this.state.crashed ? <Fallback /> : this.props.children
+  }
+}
+```
+
+## What positive signal does for you
+
+A reasonable health dashboard is *one positive number per critical
+flow*, not a wall of failure rates:
+
+| Flow | Positive event | Alert when |
+|---|---|---|
+| Anyone using the app | `app.ready` count | drops > 50% w/w |
+| Page-level rendering | `route.painted` count by route | drops > 50% w/w on a route |
+| Checkout completion | `checkout.confirmed_visible` | drops > 30% w/w |
+| Search functionality | `search.results_first_page` visibility | drops > 30% w/w |
+
+When you have positive signal, "we're healthy" is a thing you can
+*prove*, not a thing you assume because nobody's paged.
+
+## Where this stops being Spectra's job
+
+A few things "user interaction" or "page health" shade into that you
+should reach for a different tool for:
 
 - **Heatmaps and click-density.** FullStory, Hotjar.
 - **Session replay.** LogRocket, Sentry Replay.
