@@ -30,6 +30,7 @@ ENTRIES=(
   "@rachelallyson/spectra"
   "@rachelallyson/spectra/catalog"
   "@rachelallyson/spectra/schemas"
+  "@rachelallyson/spectra/metadata"
   "@rachelallyson/spectra/publishers"
   "@rachelallyson/spectra/publishers/node"
   "@rachelallyson/spectra/publisher-utils"

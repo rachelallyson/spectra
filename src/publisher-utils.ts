@@ -85,6 +85,36 @@ export function redactingPublisher<TMap extends SchemaMap>(
   }
 }
 
+/**
+ * Wrap a publisher so it only forwards events whose metadata matches
+ * the predicate. Pair with `tag()` from `@rachelallyson/spectra` to
+ * mark schemas with PII level, retention class, etc.
+ *
+ * ```ts
+ * import { tag, routeByMeta, redactingPublisher } from '@rachelallyson/spectra'
+ *
+ * // Only ship low-PII events to PostHog; high-PII goes to Datadog
+ * // (which is in your VPC).
+ * catalog.setPublishers([
+ *   routeByMeta((m) => m?.pii !== 'high', posthog),
+ *   datadog,
+ * ])
+ * ```
+ */
+export function routeByMeta<TMap extends SchemaMap>(
+  predicate: (meta: Readonly<Record<string, unknown>> | undefined) => boolean,
+  inner: Publisher<TMap>,
+): Publisher<TMap> {
+  return {
+    name: `routed:${inner.name}`,
+    filter: inner.filter,
+    publish(event) {
+      if (!predicate(event.meta)) return
+      return inner.publish(event)
+    },
+  }
+}
+
 function scrub(target: Record<string, unknown>, segments: string[], replacement: unknown): void {
   if (segments.length === 0 || target == null || typeof target !== 'object') return
   const [head, ...rest] = segments
