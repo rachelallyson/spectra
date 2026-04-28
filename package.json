@@ -105,7 +105,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "typecheck:examples": "tsc --noEmit -p examples/basic/tsconfig.json",
+    "typecheck:examples": "tsc --noEmit -p examples/basic/tsconfig.json && tsc --noEmit -p examples/browser-react/tsconfig.json && tsc --noEmit -p examples/server-trpc-otel/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint:package": "publint && attw --pack . --profile esm-only && bash ./scripts/smoke-test-tarball.sh",

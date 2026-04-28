@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+    "paths": {
+      "@rachelallyson/spectra": ["../../src/index.ts"],
+      "@rachelallyson/spectra/*": ["../../src/*.ts"],
+      "zod": ["../../node_modules/zod"]
+    }
+  },
+  "include": ["src/**/*", "vite.config.ts"]
+}
