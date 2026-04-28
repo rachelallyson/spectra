@@ -1,21 +1,43 @@
-import type { z } from 'zod'
+import { getMeta } from './metadata.js'
 import type { Publisher } from './publishers.js'
 
 /**
  * Portable catalog factory. Each app calls defineCatalog with its own map of
- * `{ eventName: zodSchema }` and gets back a fully-typed emitter pair plus the
+ * `{ eventName: schema }` and gets back a fully-typed emitter pair plus the
  * type aliases its codebase needs. No app-specific knowledge lives in core.
  *
  * Stratum-style: the catalog is the single source of truth, the emitter
  * validates against it at runtime, and publishers are the fan-out layer.
  */
 
-export type SchemaMap = Record<string, z.ZodTypeAny>
+/**
+ * Anything with a `parse(input: unknown): T` method works as a catalog
+ * schema. Zod (`Validator`), Valibot (`safeParse` not enough — wrap),
+ * Effect Schema (with `.parse`), or a hand-written guard all satisfy
+ * this structural shape.
+ *
+ * Most users won't reference this directly — Zod schemas are accepted
+ * via structural compatibility.
+ */
+export interface Validator<TOutput = unknown> {
+  parse(input: unknown): TOutput
+}
+
+/** Extract the output type of a validator. Stand-in for Zod's `z.infer`. */
+export type Output<V> = V extends Validator<infer T> ? T : never
+
+export type SchemaMap = Record<string, Validator>
 
 export interface CatalogEvent<TMap extends SchemaMap, N extends keyof TMap = keyof TMap> {
   name: N
-  payload: z.infer<TMap[N]>
+  payload: Output<TMap[N]>
   timestamp: Date
+  /**
+   * Metadata attached to the schema via `tag()`. Publishers use it to
+   * route / redact / sample without hard-coded paths. Frozen; don't
+   * mutate.
+   */
+  meta?: Readonly<Record<string, unknown>>
 }
 
 /** Surface for failures inside publishers. Default is `console.error`. */
@@ -55,8 +77,8 @@ export interface CatalogOptions<TMap extends SchemaMap> {
 export interface Catalog<TMap extends SchemaMap> {
   schemas: TMap
   eventNames: ReadonlyArray<keyof TMap>
-  emit: <N extends keyof TMap>(name: N, payload: z.infer<TMap[N]>) => void
-  emitAsync: <N extends keyof TMap>(name: N, payload: z.infer<TMap[N]>) => Promise<void>
+  emit: <N extends keyof TMap>(name: N, payload: Output<TMap[N]>) => void
+  emitAsync: <N extends keyof TMap>(name: N, payload: Output<TMap[N]>) => Promise<void>
   setPublishers: (next: Publisher<TMap>[]) => void
   getPublishers: () => readonly Publisher<TMap>[]
   /** Test/debug only — clears publishers and snapshots returned to a clean state. */
@@ -135,7 +157,7 @@ export function defineCatalog<TMap extends SchemaMap>(
     }
   }
 
-  const requireSchema = (name: keyof TMap): z.ZodTypeAny => {
+  const requireSchema = (name: keyof TMap): Validator => {
     const schema = schemas[name]
 
     if (schema) return schema
@@ -153,29 +175,31 @@ export function defineCatalog<TMap extends SchemaMap>(
     return validateMode(name, payload)
   }
 
-  const validate = <N extends keyof TMap>(name: N, payload: unknown): z.infer<TMap[N]> => {
+  const validate = <N extends keyof TMap>(name: N, payload: unknown): Output<TMap[N]> => {
     if (!shouldValidate(name, payload)) {
       // Still resolve the schema so we throw on unknown names; the
       // suggestName hint is the most valuable part of strict-mode parity.
       requireSchema(name)
-      return payload as z.infer<TMap[N]>
+      return payload as Output<TMap[N]>
     }
 
-    return requireSchema(name).parse(payload)
+    return requireSchema(name).parse(payload) as Output<TMap[N]>
   }
 
-  const emit = <N extends keyof TMap>(name: N, payload: z.infer<TMap[N]>): void => {
+  const emit = <N extends keyof TMap>(name: N, payload: Output<TMap[N]>): void => {
     const parsed = validate(name, payload)
+    const meta = getMeta(schemas[name])
 
-    dispatch({ name, payload: parsed, timestamp: new Date() })
+    dispatch({ meta, name, payload: parsed, timestamp: new Date() })
   }
 
   const emitAsync = async <N extends keyof TMap>(
     name: N,
-    payload: z.infer<TMap[N]>,
+    payload: Output<TMap[N]>,
   ): Promise<void> => {
     const parsed = validate(name, payload)
     const event: CatalogEvent<TMap> = {
+      meta: getMeta(schemas[name]),
       name,
       payload: parsed,
       timestamp: new Date(),

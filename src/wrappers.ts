@@ -1,6 +1,22 @@
-import type { z } from 'zod'
-import type { Catalog, SchemaMap } from './catalog.js'
+import type { Catalog, Output, SchemaMap } from './catalog.js'
 import { captureError } from './errors.js'
+
+/**
+ * Returns `true` when the error looks like an `AbortController.abort()`
+ * cancellation: a `DOMException` with name `'AbortError'`, an `Error`
+ * with `name === 'AbortError'`, or anything else with that property.
+ *
+ * The wrappers don't manage AbortSignals themselves (flow control
+ * stays the caller's job), but they expose this so the failure
+ * pathway can decide whether a "failed" emit is really worth alarming
+ * on or just intentional cancellation.
+ */
+export function isAbortError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const name = (err as { name?: unknown }).name
+
+  return name === 'AbortError'
+}
 
 /**
  * Wrapper factories built against an arbitrary catalog. The app passes its
@@ -19,15 +35,41 @@ type RequiredProcedureEvents<TMap extends SchemaMap> = {
   failed: keyof TMap
 }
 
-type ExtractPayload<TMap extends SchemaMap, N extends keyof TMap> = z.infer<TMap[N]>
+type ExtractPayload<TMap extends SchemaMap, N extends keyof TMap> = Output<TMap[N]>
 
 export interface WrapperFactoryConfig<TMap extends SchemaMap> {
+  /** The catalog to emit lifecycle events against. */
   catalog: Catalog<TMap>
+  /** Event names for the tRPC-procedure lifecycle. */
   procedure: RequiredProcedureEvents<TMap>
+  /** Event names for the background-job lifecycle. */
   job: RequiredProcedureEvents<TMap>
+  /** Optional event names for outbound HTTP / vendor calls. */
   externalCall?: RequiredProcedureEvents<TMap>
 }
 
+/**
+ * Returns wrapper factories that emit `started/succeeded/failed`
+ * lifecycle events around any async function. The catalog is the
+ * source of truth for the event names; the wrapper computes
+ * `durationMs` and unpacks errors into a structured payload.
+ *
+ * Caught errors are also forwarded to `captureError()` so the error
+ * pathway sees them — `emit('*.failed')` describes what happened to
+ * the *flow*; `captureError` describes what happened to the *error*.
+ *
+ * ```ts
+ * const { withProcedureEvents, withJobEvents } = createWrappers({
+ *   catalog,
+ *   procedure: { started: 'proc.started', succeeded: 'proc.succeeded', failed: 'proc.failed' },
+ *   job: { started: 'job.started', succeeded: 'job.succeeded', failed: 'job.failed' },
+ * })
+ *
+ * const send = withProcedureEvents('email.send', async (to: string) => {
+ *   await mailer.send(to)
+ * })
+ * ```
+ */
 export function createWrappers<TMap extends SchemaMap>(config: WrapperFactoryConfig<TMap>) {
   const { catalog } = config
 
@@ -78,12 +120,13 @@ export function createWrappers<TMap extends SchemaMap>(config: WrapperFactoryCon
         catalog.emit(config.procedure.failed, {
           durationMs: Date.now() - start,
           errorCode: err instanceof Error ? err.name : 'UNKNOWN',
-          errorKind: err instanceof Error ? err.constructor.name : 'unknown',
+          errorKind: isAbortError(err) ? 'aborted' : err instanceof Error ? err.constructor.name : 'unknown',
           errorMessage: err instanceof Error ? err.message : String(err),
           procedure: procedureName,
           ...failurePayload,
         } as ExtractPayload<TMap, typeof config.procedure.failed>)
-        captureError(err, { procedure: procedureName })
+        // Don't push aborts through captureError — they're not bugs.
+        if (!isAbortError(err)) captureError(err, { procedure: procedureName })
         throw err
       }
     }
@@ -116,7 +159,7 @@ export function createWrappers<TMap extends SchemaMap>(config: WrapperFactoryCon
           errorMessage: err instanceof Error ? err.message : String(err),
           jobName,
         } as ExtractPayload<TMap, typeof config.job.failed>)
-        captureError(err, { job: jobName })
+        if (!isAbortError(err)) captureError(err, { job: jobName })
         throw err
       }
     }

@@ -86,6 +86,35 @@ describe('defineCatalog', () => {
     expect(() => catalog.emit('user.signed_in', { wrong: 1 } as never)).toThrow()
   })
 
+  it('accepts non-Zod validators (structural pluggability)', () => {
+    // A hand-rolled validator: anything with .parse(input): T satisfies
+    // the Validator<T> interface.
+    const customSchemas = {
+      'app.boot': {
+        parse(input: unknown): { env: string } {
+          if (typeof input !== 'object' || input === null || !('env' in input)) {
+            throw new Error('boot needs env')
+          }
+          return input as { env: string }
+        },
+      },
+    }
+    const catalog = defineCatalog(customSchemas)
+    const seen: Array<{ env: string }> = []
+    catalog.setPublishers([
+      {
+        name: 'spy',
+        publish(e) {
+          seen.push(e.payload)
+        },
+      },
+    ])
+
+    catalog.emit('app.boot', { env: 'prod' })
+    expect(seen).toEqual([{ env: 'prod' }])
+    expect(() => catalog.emit('app.boot', { wrong: 1 } as never)).toThrow(/boot needs env/)
+  })
+
   it('falls back to console.error when no onPublisherError is provided', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const catalog = defineCatalog(schemas)

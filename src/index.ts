@@ -3,11 +3,14 @@ export {
   type Catalog,
   type CatalogEvent,
   type CatalogOptions,
+  type Output,
   type PublisherErrorHandler,
   type SchemaMap,
+  type Validator,
   type ValidationMode,
 } from './catalog.js'
 export { mergeSchemas, withBase } from './schemas.js'
+export { getMeta, tag } from './metadata.js'
 export { consolePublisher, memoryPublisher, type Publisher } from './publishers.js'
 export {
   httpPublisher,
@@ -21,7 +24,7 @@ export {
   type RequestContextStore,
 } from './context.js'
 export { captureError, setErrorSink, type ErrorContext, type ErrorSink } from './errors.js'
-export { createWrappers, type WrapperFactoryConfig } from './wrappers.js'
+export { createWrappers, isAbortError, type WrapperFactoryConfig } from './wrappers.js'
 export {
   createTestHarness,
   type CoverageHit,
