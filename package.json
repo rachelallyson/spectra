@@ -38,6 +38,10 @@
       "types": "./dist/catalog.d.ts",
       "import": "./dist/catalog.js"
     },
+    "./schemas": {
+      "types": "./dist/schemas.d.ts",
+      "import": "./dist/schemas.js"
+    },
     "./publishers": {
       "types": "./dist/publishers.d.ts",
       "import": "./dist/publishers.js"
@@ -45,6 +49,14 @@
     "./publishers/node": {
       "types": "./dist/publishers-node.d.ts",
       "import": "./dist/publishers-node.js"
+    },
+    "./publisher-utils": {
+      "types": "./dist/publisher-utils.d.ts",
+      "import": "./dist/publisher-utils.js"
+    },
+    "./otel": {
+      "types": "./dist/otel-publisher.d.ts",
+      "import": "./dist/otel-publisher.js"
     },
     "./http-publisher": {
       "types": "./dist/http-publisher.d.ts",
@@ -98,12 +110,19 @@
     "prepublishOnly": "pnpm build && pnpm test && pnpm lint:package"
   },
   "peerDependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "zod": "^3.24.0 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
     "@changesets/changelog-github": "^0.6.0",
     "@changesets/cli": "^2.31.0",
+    "@opentelemetry/api": "^1.9.1",
     "@types/node": "^22.10.2",
     "happy-dom": "^20.9.0",
     "publint": "^0.3.18",

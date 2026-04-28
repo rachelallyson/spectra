@@ -52,6 +52,40 @@ describe('defineCatalog', () => {
     expect(seen).toEqual([{ pubName: 'flaky', eventName: 'user.signed_in' }])
   })
 
+  it("validate: 'off' skips Zod but still rejects unknown event names", () => {
+    const catalog = defineCatalog(schemas, { validate: 'off' })
+    const seen: unknown[] = []
+    catalog.setPublishers([{
+      name: 'spy',
+      publish: (e) => {
+        seen.push(e.payload)
+      },
+    }])
+
+    // Bad payload accepted (no Zod check) — passed through to publishers as-is.
+    catalog.emit('user.signed_in', { totally: 'wrong' } as never)
+    expect(seen).toEqual([{ totally: 'wrong' }])
+
+    // Unknown name still throws (with did-you-mean).
+    expect(() =>
+      // @ts-expect-error
+      catalog.emit('user.signed_im', { userId: 'u1' }),
+    ).toThrow(/Did you mean/)
+  })
+
+  it('validate: function lets you sample validation per event', () => {
+    let calls = 0
+    const catalog = defineCatalog(schemas, {
+      validate: () => {
+        calls += 1
+        return calls % 2 === 0 // validate every second emit
+      },
+    })
+
+    expect(() => catalog.emit('user.signed_in', { wrong: 1 } as never)).not.toThrow()
+    expect(() => catalog.emit('user.signed_in', { wrong: 1 } as never)).toThrow()
+  })
+
   it('falls back to console.error when no onPublisherError is provided', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const catalog = defineCatalog(schemas)

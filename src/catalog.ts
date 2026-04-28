@@ -25,6 +25,22 @@ export type PublisherErrorHandler<TMap extends SchemaMap> = (info: {
   error: unknown
 }) => void
 
+/**
+ * Validation policy for `emit()` / `emitAsync()`.
+ *
+ * - `'strict'` (default): every emit runs the Zod schema. Callers see a
+ *   ZodError on bad payloads — what you want in dev/test/staging.
+ * - `'off'`: skip Zod entirely; the payload is forwarded as-is. Use only
+ *   in proven hot paths where the upstream caller is already typed and
+ *   you've measured the validation cost as actually meaningful.
+ * - function: called per emit; return `true` to validate, `false` to skip.
+ *   Useful for sampling validation in production (e.g. validate 1 in 100).
+ */
+export type ValidationMode<TMap extends SchemaMap> =
+  | 'strict'
+  | 'off'
+  | (<N extends keyof TMap>(name: N, payload: unknown) => boolean)
+
 export interface CatalogOptions<TMap extends SchemaMap> {
   /**
    * Called when a publisher's `publish()` throws or rejects. Use this to
@@ -32,6 +48,8 @@ export interface CatalogOptions<TMap extends SchemaMap> {
    * logged to `console.error` and other publishers continue.
    */
   onPublisherError?: PublisherErrorHandler<TMap>
+  /** See `ValidationMode`. Defaults to `'strict'`. */
+  validate?: ValidationMode<TMap>
 }
 
 export interface Catalog<TMap extends SchemaMap> {
@@ -127,20 +145,39 @@ export function defineCatalog<TMap extends SchemaMap>(
     throw new Error(`[spectra] unknown event "${String(name)}".${hint}`)
   }
 
-  const emit = <N extends keyof TMap>(name: N, payload: z.infer<TMap[N]>): void => {
-    const parsed = requireSchema(name).parse(payload)
+  const validateMode = options.validate ?? 'strict'
+  const shouldValidate = <N extends keyof TMap>(name: N, payload: unknown): boolean => {
+    if (validateMode === 'off') return false
+    if (validateMode === 'strict') return true
 
-    dispatch({ name, payload: parsed as z.infer<TMap[N]>, timestamp: new Date() })
+    return validateMode(name, payload)
+  }
+
+  const validate = <N extends keyof TMap>(name: N, payload: unknown): z.infer<TMap[N]> => {
+    if (!shouldValidate(name, payload)) {
+      // Still resolve the schema so we throw on unknown names; the
+      // suggestName hint is the most valuable part of strict-mode parity.
+      requireSchema(name)
+      return payload as z.infer<TMap[N]>
+    }
+
+    return requireSchema(name).parse(payload)
+  }
+
+  const emit = <N extends keyof TMap>(name: N, payload: z.infer<TMap[N]>): void => {
+    const parsed = validate(name, payload)
+
+    dispatch({ name, payload: parsed, timestamp: new Date() })
   }
 
   const emitAsync = async <N extends keyof TMap>(
     name: N,
     payload: z.infer<TMap[N]>,
   ): Promise<void> => {
-    const parsed = requireSchema(name).parse(payload)
+    const parsed = validate(name, payload)
     const event: CatalogEvent<TMap> = {
       name,
-      payload: parsed as z.infer<TMap[N]>,
+      payload: parsed,
       timestamp: new Date(),
     }
 

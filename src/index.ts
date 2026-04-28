@@ -5,13 +5,16 @@ export {
   type CatalogOptions,
   type PublisherErrorHandler,
   type SchemaMap,
+  type ValidationMode,
 } from './catalog.js'
+export { mergeSchemas, withBase } from './schemas.js'
 export { consolePublisher, memoryPublisher, type Publisher } from './publishers.js'
 export {
   httpPublisher,
   type HttpPublisher,
   type HttpPublisherOptions,
 } from './http-publisher.js'
+export { redactingPublisher, sampledPublisher } from './publisher-utils.js'
 export {
   createContext,
   type BaseRequestContext,
