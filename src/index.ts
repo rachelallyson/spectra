@@ -1,5 +1,17 @@
-export { defineCatalog, type Catalog, type CatalogEvent, type SchemaMap } from './catalog.js'
+export {
+  defineCatalog,
+  type Catalog,
+  type CatalogEvent,
+  type CatalogOptions,
+  type PublisherErrorHandler,
+  type SchemaMap,
+} from './catalog.js'
 export { consolePublisher, memoryPublisher, type Publisher } from './publishers.js'
+export {
+  httpPublisher,
+  type HttpPublisher,
+  type HttpPublisherOptions,
+} from './http-publisher.js'
 export {
   createContext,
   type BaseRequestContext,

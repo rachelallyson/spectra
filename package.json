@@ -46,6 +46,10 @@
       "types": "./dist/publishers-node.d.ts",
       "import": "./dist/publishers-node.js"
     },
+    "./http-publisher": {
+      "types": "./dist/http-publisher.d.ts",
+      "import": "./dist/http-publisher.js"
+    },
     "./context": {
       "types": "./dist/context.d.ts",
       "import": "./dist/context.js"
