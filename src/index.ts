@@ -17,6 +17,13 @@ export {
   type HttpPublisher,
   type HttpPublisherOptions,
 } from './http-publisher.js'
+export {
+  parseEventBatch,
+  type AcceptedEvent,
+  type ParseEventBatchOptions,
+  type ParseEventBatchResult,
+  type RejectedEvent,
+} from './ingest.js'
 export { redactingPublisher, sampledPublisher } from './publisher-utils.js'
 export {
   createContext,

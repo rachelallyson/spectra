@@ -35,6 +35,7 @@ ENTRIES=(
   "@rachelallyson/spectra/publishers/node"
   "@rachelallyson/spectra/publisher-utils"
   "@rachelallyson/spectra/http-publisher"
+  "@rachelallyson/spectra/ingest"
   "@rachelallyson/spectra/otel"
   "@rachelallyson/spectra/context"
   "@rachelallyson/spectra/errors"

@@ -38,6 +38,12 @@
     "limit": "1.5 KB"
   },
   {
+    "name": "/ingest",
+    "path": "dist/ingest.js",
+    "import": "{ parseEventBatch }",
+    "limit": "1 KB"
+  },
+  {
     "name": "/publisher-utils",
     "path": "dist/publisher-utils.js",
     "import": "{ sampledPublisher, redactingPublisher }",

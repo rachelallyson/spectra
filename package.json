@@ -66,6 +66,10 @@
       "types": "./dist/http-publisher.d.ts",
       "import": "./dist/http-publisher.js"
     },
+    "./ingest": {
+      "types": "./dist/ingest.d.ts",
+      "import": "./dist/ingest.js"
+    },
     "./context": {
       "types": "./dist/context.d.ts",
       "import": "./dist/context.js"
