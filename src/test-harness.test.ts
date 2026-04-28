@@ -69,6 +69,22 @@ describe('test harness', () => {
   })
 })
 
+describe('abort handling in wrappers', () => {
+  beforeEach(() => harness.install(expect.getState().currentTestName ?? 'unknown'))
+  afterEach(() => harness.uninstall())
+
+  it('tags AbortError as "aborted" in the failed payload', async () => {
+    const aborting = withProcedureEvents('abortable', async () => {
+      const err = new Error('user canceled')
+      err.name = 'AbortError'
+      throw err
+    })
+    await expect(aborting()).rejects.toThrow(/canceled/)
+    const failed = harness.findFirst('demo.proc.failed')
+    expect(failed?.payload.errorKind).toBe('aborted')
+  })
+})
+
 describe('test harness publisher preservation', () => {
   // Regression: install() used to call setPublishers([memory, coverage-tracker])
   // which evicted any pre-registered sink (e.g. a per-worker

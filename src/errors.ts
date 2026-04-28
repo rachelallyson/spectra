@@ -30,10 +30,37 @@ let activeSink: ErrorSink = (err, context) => {
   )
 }
 
+/**
+ * Replace the active error sink. Call once at boot, typically with
+ * Sentry's `captureException` or your structured-log forwarder.
+ *
+ * ```ts
+ * import * as Sentry from '@sentry/node'
+ * setErrorSink((err, ctx) => Sentry.captureException(err, { extra: ctx }))
+ * ```
+ */
 export function setErrorSink(sink: ErrorSink): void {
   activeSink = sink
 }
 
+/**
+ * Forward an error to the active sink. Use this for catches in code
+ * paths where the error doesn't propagate to a request boundary that
+ * already reports it.
+ *
+ * ```ts
+ * try {
+ *   await doRiskyThing()
+ * } catch (err) {
+ *   captureError(err, { requestId: ctx.requestId, op: 'doRiskyThing' })
+ *   throw err  // or swallow, depending on your flow
+ * }
+ * ```
+ *
+ * Stays separate from `emit()` on purpose — events describe things
+ * that happened; errors describe things that went wrong. Routing them
+ * to the same sink conflates causes with effects.
+ */
 export function captureError(err: unknown, context: ErrorContext = {}): void {
   activeSink(err, context)
 }
