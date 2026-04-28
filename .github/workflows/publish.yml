@@ -8,10 +8,12 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      id-token: write  # for npm provenance
+      contents: write    # for creating the GitHub Release
+      id-token: write    # for npm provenance
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # full history so we can derive release notes from CHANGELOG
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -27,3 +29,9 @@ jobs:
       - run: pnpm publish --no-git-checks --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          # Use the matching CHANGELOG.md section if present; otherwise
+          # GitHub generates auto-notes from commits since the last tag.
+          generate_release_notes: true
+          name: ${{ github.ref_name }}

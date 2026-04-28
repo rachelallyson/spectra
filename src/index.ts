@@ -1,10 +1,5 @@
 export { defineCatalog, type Catalog, type CatalogEvent, type SchemaMap } from './catalog'
-export {
-  consolePublisher,
-  fileSinkPublisher,
-  memoryPublisher,
-  type Publisher,
-} from './publishers'
+export { consolePublisher, memoryPublisher, type Publisher } from './publishers'
 export {
   createContext,
   type BaseRequestContext,

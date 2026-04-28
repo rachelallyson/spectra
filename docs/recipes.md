@@ -126,7 +126,7 @@ export const sendWelcomeEmail = inngest.createFunction(
 
 ```ts
 // vitest-setup.ts
-import { fileSinkPublisher } from '@rachelallyson/spectra'
+import { fileSinkPublisher } from '@rachelallyson/spectra/publishers/node'
 import { catalog } from './src/observability/catalog'
 
 catalog.setPublishers([fileSinkPublisher('./obs-coverage/events.jsonl')])

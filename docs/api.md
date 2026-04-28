@@ -42,7 +42,8 @@ interface Publisher<TMap> {
 Used by the test harness; rarely registered directly.
 
 **`fileSinkPublisher(filePath)`** — appends one JSON line per event.
-Pair with `reportCoverage` for catalog-coverage reports.
+Pair with `reportCoverage` for catalog-coverage reports. Node-only; import
+from `@rachelallyson/spectra/publishers/node`.
 
 ## Request context
 

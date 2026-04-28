@@ -1,5 +1,3 @@
-import { appendFileSync, mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
 import type { CatalogEvent, SchemaMap } from './catalog'
 
 /**
@@ -47,29 +45,6 @@ export function memoryPublisher<TMap extends SchemaMap>(): Publisher<TMap> & {
     name: 'memory',
     publish(event) {
       buffer.push(event)
-    },
-  }
-}
-
-/**
- * Append-only JSON-lines sink. Useful in dev/test to keep a durable record of
- * what got emitted across runs — pair with the memory publisher for in-test
- * assertions and this one for offline inspection.
- */
-export function fileSinkPublisher<TMap extends SchemaMap>(filePath: string): Publisher<TMap> {
-  mkdirSync(dirname(filePath), { recursive: true })
-
-  return {
-    name: `file-sink:${filePath}`,
-    publish(event) {
-      appendFileSync(
-        filePath,
-        `${JSON.stringify({
-          event: event.name,
-          t: event.timestamp.toISOString(),
-          ...(event.payload as object),
-        })}\n`,
-      )
     },
   }
 }
