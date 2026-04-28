@@ -31,6 +31,54 @@ Why this matters:
 The discipline: **add a catalog entry first, then emit**. Never `emit()`
 a string literal that isn't already in the catalog.
 
+### Naming convention
+
+Spectra is opinion-light, but consistent event names are the difference
+between a catalog you can grep and one you can't. The convention we
+recommend:
+
+```
+domain.subject_verb
+```
+
+- **`domain`** — the part of the system. Usually a noun-ish module
+  (`auth`, `billing`, `search`, `app`, `worker`).
+- **`subject_verb`** — the thing that happened. Snake-case, past tense.
+  `signed_in`, `charged`, `query_completed`, `started`.
+
+Examples:
+
+```
+auth.signed_in
+auth.signed_out
+auth.password_reset_requested
+billing.subscription_created
+billing.payment_failed
+search.query_completed
+app.boot_started
+worker.job_started
+worker.job_succeeded
+worker.job_failed
+```
+
+Why this shape:
+
+- Dots split cleanly when filtering by domain (`filter: e =>
+  String(e.name).startsWith('auth.')`).
+- Past-tense reinforces that events describe things that *happened*,
+  not commands. `user.sign_in` reads like an instruction; `user.signed_in`
+  reads like history.
+- Snake-case in the verb segment is easier to skim than camelCase in
+  long event lists, and avoids the casing fight every team has once.
+
+The lifecycle wrappers (`createWrappers`) lean on a `*.started` /
+`*.succeeded` / `*.failed` triple — this convention plays nicely with
+that.
+
+If you're already in a codebase with a different convention, keep
+yours. Internal consistency beats external opinion every time. The
+catalog will tell you the moment you drift.
+
 ## Publishers fan out
 
 A publisher is a dumb forwarder. It receives an `Event` (name + payload
