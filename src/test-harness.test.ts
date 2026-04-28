@@ -55,6 +55,39 @@ describe('test harness', () => {
   })
 })
 
+describe('test harness publisher preservation', () => {
+  // Regression: install() used to call setPublishers([memory, coverage-tracker])
+  // which evicted any pre-registered sink (e.g. a per-worker
+  // fileSinkPublisher wired by a vitest setup file). Every event emitted
+  // from any test that touched the harness was silently dropped from the
+  // sink for the rest of the worker's lifetime — and the post-suite
+  // coverage report came out missing every test that ran the harness.
+  it('preserves and restores pre-registered publishers across install/uninstall', () => {
+    const baselineEvents: string[] = []
+    const baseline = {
+      name: 'baseline-sink',
+      publish: (event: { name: keyof typeof schemas }) => {
+        baselineEvents.push(event.name as string)
+      },
+    }
+
+    catalog.setPublishers([baseline])
+
+    harness.install('publisher-preservation-test')
+    catalog.emit('demo.standalone', { id: 'during-install' })
+    expect(baselineEvents).toEqual(['demo.standalone'])
+    expect(harness.findFirst('demo.standalone')?.payload).toEqual({ id: 'during-install' })
+
+    harness.uninstall()
+    expect(catalog.getPublishers()).toEqual([baseline])
+
+    catalog.emit('demo.standalone', { id: 'after-uninstall' })
+    expect(baselineEvents).toEqual(['demo.standalone', 'demo.standalone'])
+
+    catalog.setPublishers([])
+  })
+})
+
 describe('wrappers', () => {
   beforeEach(() => harness.install(expect.getState().currentTestName ?? 'unknown'))
   afterEach(() => harness.uninstall())

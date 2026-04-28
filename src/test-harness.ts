@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import type { Catalog, CatalogEvent, SchemaMap } from './catalog.js'
-import { memoryPublisher } from './publishers.js'
+import { memoryPublisher, type Publisher } from './publishers.js'
 
 /**
  * Test harness for catalog-driven observability. Three jobs:
@@ -31,6 +31,12 @@ export function createTestHarness<TMap extends SchemaMap>(catalog: Catalog<TMap>
   const memory = memoryPublisher<TMap>()
   const coverage = new Map<keyof TMap, Map<string, number>>()
   let activeTest: string | undefined
+  // Snapshot of publishers that were registered before install() ran, so
+  // uninstall() can restore them. `null` means "not currently installed."
+  // Without this, install() would clobber a per-worker fileSinkPublisher
+  // wired by vitest setup, silently dropping every event the rest of the
+  // worker ever emits.
+  let priorPublishers: Publisher<TMap>[] | null = null
 
   const recordHit = (event: CatalogEvent<TMap>) => {
     if (!activeTest) return
@@ -43,9 +49,15 @@ export function createTestHarness<TMap extends SchemaMap>(catalog: Catalog<TMap>
   return {
     /** Install the in-memory publisher for the duration of one test. */
     install(testName: string) {
+      // Idempotent: if install() is called twice without an uninstall(),
+      // don't snapshot our own publishers as the "prior" set.
+      if (priorPublishers === null) {
+        priorPublishers = [...catalog.getPublishers()]
+      }
       activeTest = testName
       memory.clear()
       catalog.setPublishers([
+        ...priorPublishers,
         memory,
         {
           name: 'coverage-tracker',
@@ -57,7 +69,12 @@ export function createTestHarness<TMap extends SchemaMap>(catalog: Catalog<TMap>
     /** Tear down — call in afterEach so other tests start clean. */
     uninstall() {
       activeTest = undefined
-      catalog.setPublishers([])
+      if (priorPublishers !== null) {
+        catalog.setPublishers(priorPublishers)
+        priorPublishers = null
+      } else {
+        catalog.setPublishers([])
+      }
       memory.clear()
     },
 
