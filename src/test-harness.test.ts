@@ -53,6 +53,20 @@ describe('test harness', () => {
     catalog.emit('demo.proc.succeeded', { durationMs: 1, procedure: 'x' })
     harness.expectSequence(['demo.proc.started', 'demo.proc.succeeded'], { allowGaps: true })
   })
+
+  it('expectEmitted matches by name and payload subset', () => {
+    catalog.emit('demo.standalone', { id: 'a' })
+    harness.expectEmitted('demo.standalone')
+    harness.expectEmitted('demo.standalone', { id: 'a' })
+    expect(() => harness.expectEmitted('demo.standalone', { id: 'b' })).toThrow(/payload mismatch/)
+    expect(() => harness.expectEmitted('demo.proc.started')).toThrow(/never emitted/)
+  })
+
+  it('never asserts an event was not emitted', () => {
+    catalog.emit('demo.standalone', { id: 'a' })
+    harness.never('demo.proc.started')
+    expect(() => harness.never('demo.standalone')).toThrow(/expected event "demo\.standalone" to NOT be emitted/)
+  })
 })
 
 describe('test harness publisher preservation', () => {

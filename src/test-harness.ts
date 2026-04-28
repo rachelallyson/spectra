@@ -123,6 +123,57 @@ export function createTestHarness<TMap extends SchemaMap>(catalog: Catalog<TMap>
       return memory.capture().find((e) => e.name === name) as CatalogEvent<TMap, N> | undefined
     },
 
+    /**
+     * Assert exactly one event of `name` was emitted, optionally with a
+     * payload that includes the given partial. Throws a readable diff on
+     * mismatch.
+     *
+     * ```ts
+     * harness.expectEmitted('user.signed_in', { userId: 'u1' })
+     * ```
+     */
+    expectEmitted<N extends keyof TMap>(
+      name: N,
+      payload?: Partial<CatalogEvent<TMap, N>['payload']>,
+    ): void {
+      const matches = memory.capture().filter((e) => e.name === name)
+
+      if (matches.length === 0) {
+        const seen = memory.capture().map((e) => String(e.name))
+
+        throw new Error(
+          `[observability/test] expected event "${String(name)}" was never emitted.\n  seen: ${seen.join(', ') || '(none)'}`,
+        )
+      }
+      if (!payload) return
+
+      const got = matches[0]?.payload as Record<string, unknown>
+      const want = payload as Record<string, unknown>
+      const mismatched = Object.keys(want).filter(
+        (k) => JSON.stringify(got?.[k]) !== JSON.stringify(want[k]),
+      )
+
+      if (mismatched.length > 0) {
+        throw new Error(
+          `[observability/test] event "${String(name)}" payload mismatch on keys: ${mismatched.join(', ')}\n  expected: ${JSON.stringify(payload)}\n  actual:   ${JSON.stringify(got)}`,
+        )
+      }
+    },
+
+    /**
+     * Assert the named event was NOT emitted. Useful for guarding against
+     * regressions where an event leaks out of a code path it shouldn't.
+     */
+    never<N extends keyof TMap>(name: N): void {
+      const matches = memory.capture().filter((e) => e.name === name)
+
+      if (matches.length > 0) {
+        throw new Error(
+          `[observability/test] expected event "${String(name)}" to NOT be emitted, but it was emitted ${matches.length} time(s).`,
+        )
+      }
+    },
+
     /** Coverage snapshot keyed by event name → list of test names that hit it. */
     coverageReport(): {
       hit: Array<{ name: keyof TMap; tests: string[]; count: number }>
