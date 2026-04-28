@@ -46,5 +46,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - name: publint + attw
+      - name: publint + attw + smoke
         run: pnpm lint:package
+      - name: bundle-size budgets
+        run: pnpm size

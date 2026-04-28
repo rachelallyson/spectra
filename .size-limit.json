@@ -1,0 +1,58 @@
+[
+  {
+    "name": "root: defineCatalog only (most common minimal import)",
+    "path": "dist/index.js",
+    "import": "{ defineCatalog }",
+    "ignore": ["node:async_hooks", "node:fs", "node:path"],
+    "limit": "2 KB"
+  },
+  {
+    "name": "root: typical browser surface",
+    "path": "dist/index.js",
+    "import": "{ defineCatalog, consolePublisher, coveragePublisher, httpPublisher, sampledPublisher, redactingPublisher, captureError }",
+    "ignore": ["node:async_hooks", "node:fs", "node:path"],
+    "limit": "4 KB"
+  },
+  {
+    "name": "/catalog",
+    "path": "dist/catalog.js",
+    "import": "{ defineCatalog }",
+    "limit": "2 KB"
+  },
+  {
+    "name": "/publishers",
+    "path": "dist/publishers.js",
+    "import": "{ consolePublisher, memoryPublisher }",
+    "limit": "1 KB"
+  },
+  {
+    "name": "/coverage",
+    "path": "dist/coverage.js",
+    "import": "{ coveragePublisher, mergeCoverage, summarizeCoverage, formatCoverageSummary }",
+    "limit": "1.5 KB"
+  },
+  {
+    "name": "/http-publisher",
+    "path": "dist/http-publisher.js",
+    "import": "{ httpPublisher }",
+    "limit": "1.5 KB"
+  },
+  {
+    "name": "/publisher-utils",
+    "path": "dist/publisher-utils.js",
+    "import": "{ sampledPublisher, redactingPublisher }",
+    "limit": "1 KB"
+  },
+  {
+    "name": "/otel",
+    "path": "dist/otel-publisher.js",
+    "import": "{ otelPublisher }",
+    "limit": "1.5 KB"
+  },
+  {
+    "name": "/schemas",
+    "path": "dist/schemas.js",
+    "import": "{ withBase, mergeSchemas }",
+    "limit": "0.5 KB"
+  }
+]
