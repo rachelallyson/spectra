@@ -1,5 +1,136 @@
 # Changelog
 
+## 0.4.0
+
+### Minor Changes
+
+- [`4632f05`](https://github.com/rachelallyson/spectra/commit/4632f051d1ff92dcb5991ff3b4676ff40ab83c46) Thanks [@rachelallyson](https://github.com/rachelallyson)! - Wrappers now distinguish AbortSignal cancellations from real failures.
+
+  When the wrapped function rejects with an `AbortError`,
+  `createWrappers` emits the `*.failed` event with `errorKind: 'aborted'`
+  and _skips_ `captureError()` — aborts aren't bugs and shouldn't page
+  your on-call.
+
+  Also exports `isAbortError(err)` for use in your own catch sites.
+
+  ```ts
+  import { isAbortError } from "@rachelallyson/spectra";
+
+  try {
+    await fetch(url, { signal });
+  } catch (err) {
+    if (isAbortError(err)) return; // user navigated away; not an error
+    throw err;
+  }
+  ```
+
+- [`16e6365`](https://github.com/rachelallyson/spectra/commit/16e6365e7dc8ebbc90a003bc765ce46e54bd6280) Thanks [@rachelallyson](https://github.com/rachelallyson)! - Add validation modes and schema-composition helpers.
+
+  - `defineCatalog(schemas, { validate })` accepts `'strict'` (default,
+    unchanged), `'off'` (skip Zod, forward payload as-is), or a
+    `(name, payload) => boolean` predicate for sampled validation in
+    production. Unknown event names always throw with a "Did you mean…?"
+    hint regardless of mode.
+  - `withBase(base, events)` (new, isomorphic) merges a base Zod object
+    into every entry of a schema map — for shared envelope fields
+    (`requestId`, `tenantId`, `env`) without repeating `.extend(...)` on
+    each entry.
+  - `mergeSchemas(...maps)` (new, isomorphic) combines per-domain schema
+    maps into one and throws on duplicate keys, so feature modules can
+    own their own catalogs without flattening by hand.
+  - New isomorphic subpath `@rachelallyson/spectra/schemas` (also
+    re-exported from the root entry).
+
+- [`51010dd`](https://github.com/rachelallyson/spectra/commit/51010dd0f5f60d4603b80c497131b455bb19c819) Thanks [@rachelallyson](https://github.com/rachelallyson)! - Event-level metadata: `tag()`, `getMeta()`, `event.meta`,
+  `routeByMeta()`.
+
+  Mark catalog schemas with arbitrary metadata (PII level, retention
+  class, fan-out destination) and let publishers route on it instead of
+  hard-coding paths or predicates.
+
+  ```ts
+  import { defineCatalog, tag, routeByMeta } from '@rachelallyson/spectra'
+
+  const catalog = defineCatalog({
+    'auth.signed_in': tag(z.object({ userId: z.string() }), { pii: 'medium' }),
+    'billing.charged': tag(z.object({ ... }), { pii: 'high', retention: 'short' }),
+  })
+
+  catalog.setPublishers([
+    routeByMeta((m) => m?.pii !== 'high', posthog),  // skip high-PII to PostHog
+    datadog,                                          // everything to Datadog (in VPC)
+  ])
+  ```
+
+  Storage is a module-scoped `WeakMap`, so tagging doesn't mutate the
+  schema or break Zod's internals. `event.meta` is populated at emit
+  time and is `Readonly` (frozen). New isomorphic subpath
+  `@rachelallyson/spectra/metadata`.
+
+- [`5a70e5f`](https://github.com/rachelallyson/spectra/commit/5a70e5f2382853fe7dcb1f7cddf6e7413472c2c7) Thanks [@rachelallyson](https://github.com/rachelallyson)! - Test-harness sugar and composable publisher wrappers.
+
+  - `harness.expectEmitted(name, partialPayload?)` — assert at least one
+    event of `name` was emitted, optionally matching a payload subset.
+    Cleaner than `findFirst` + manual `expect()` for the common case.
+  - `harness.never(name)` — assert the event was _not_ emitted. Useful
+    for guarding against regressions where an event leaks out of a code
+    path it shouldn't.
+  - `sampledPublisher(rate, inner, { keep?, random? })` — wrap any
+    publisher to forward only a fraction of events. Optional `keep`
+    predicate forces specific events through (e.g. always send failures
+    while sampling successes).
+  - `redactingPublisher(paths, inner, { replacement? })` — clone each
+    payload and scrub the listed dotted paths before fan-out. Top-level
+    and nested keys both supported.
+  - New isomorphic subpath `@rachelallyson/spectra/publisher-utils`
+    (also re-exported from the root entry).
+
+- [`b1361f2`](https://github.com/rachelallyson/spectra/commit/b1361f2c7ba7594869c68dabecb1785af80f99ab) Thanks [@rachelallyson](https://github.com/rachelallyson)! - Add an OpenTelemetry bridge: `otelPublisher` ships every catalog event
+  as a span event on the active span, so traces in your APM (Honeycomb,
+  Datadog APM, Tempo) include the structured event with flattened
+  attributes.
+
+  `@opentelemetry/api` is declared as an _optional peer_. The publisher
+  takes the `trace` API as a parameter — apps that don't use OTel
+  neither install the peer nor import the subpath. New subpath
+  `@rachelallyson/spectra/otel`.
+
+  ```ts
+  import { trace } from "@opentelemetry/api";
+  import { otelPublisher } from "@rachelallyson/spectra/otel";
+
+  catalog.setPublishers([consolePublisher(), otelPublisher({ trace })]);
+  ```
+
+  Outside an active span the publisher is a silent no-op (span events
+  without a span aren't a thing in OTel).
+
+- [`19a2696`](https://github.com/rachelallyson/spectra/commit/19a2696a6fa8f504970cdf2616c7a1d3e85845cd) Thanks [@rachelallyson](https://github.com/rachelallyson)! - Validator pluggability: schemas no longer have to be Zod.
+
+  The catalog now uses a structural `Validator<T>` interface
+  (`{ parse(input: unknown): T }`) instead of `z.ZodTypeAny`. Zod schemas
+  satisfy this shape — existing call sites are unaffected — but Valibot,
+  Effect Schema, and hand-rolled guards work too.
+
+  ```ts
+  const catalog = defineCatalog({
+    "app.boot": {
+      parse(input: unknown): { env: string } {
+        // your validation
+        return input as { env: string };
+      },
+    },
+  });
+  ```
+
+  New exported types: `Validator<T>`, `Output<V>` (extracts the parse
+  return type — stand-in for Zod's `z.infer`).
+
+  `@rachelallyson/spectra` no longer carries any `import 'zod'` in its
+  compiled output. Zod remains a _type-time_ peer dep so the d.ts
+  referenced in user code resolves; required at the type level, optional
+  at runtime.
+
 ## 0.3.1
 
 ### Patch Changes
