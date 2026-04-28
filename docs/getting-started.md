@@ -127,5 +127,13 @@ curl http://localhost:3000/anything
 ```
 
 That's it. You have a typed catalog, validated emits, and a console
-publisher. Continue to [Concepts](./concepts.md) for the deeper picture
-or jump to [Recipes](./recipes.md) for tRPC / Inngest / Vitest setup.
+publisher.
+
+Where to next:
+
+- [What to capture](./best-practices.md) — the opinionated answer to
+  "what events should I actually define?" Worth reading before you
+  commit a catalog you'll regret.
+- [Concepts](./concepts.md) — the deeper picture (events vs errors,
+  publisher fan-out, request context).
+- [Recipes](./recipes.md) — tRPC / Inngest / Vitest wiring.

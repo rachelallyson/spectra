@@ -49,6 +49,7 @@ export default defineConfig({
         text: 'Core',
         items: [
           { text: 'Concepts', link: '/concepts' },
+          { text: 'What to capture (best practices)', link: '/best-practices' },
           { text: 'API Reference', link: '/api' },
         ],
       },
