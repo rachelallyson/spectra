@@ -1,3 +1,4 @@
+import type { AttributeValue, TraceAPI } from '@opentelemetry/api'
 import type { CatalogEvent, SchemaMap } from './catalog.js'
 import type { Publisher } from './publishers.js'
 
@@ -32,14 +33,12 @@ import type { Publisher } from './publishers.js'
  * compile and ship without the peer installed.
  */
 
-export interface OtelTraceApi {
-  getActiveSpan: () =>
-    | {
-        addEvent: (name: string, attrs?: Record<string, AttrValue>, time?: number | Date) => void
-        recordException?: (err: unknown) => void
-      }
-    | undefined
-}
+/**
+ * The OTel trace API as exported by `@opentelemetry/api`. We use the
+ * peer's own type so the publisher accepts the real `trace` object
+ * exactly — no structural-mismatch foot-guns.
+ */
+export type OtelTraceApi = TraceAPI
 
 export interface OtelPublisherOptions {
   /** The OTel `trace` API. From `@opentelemetry/api`. */
@@ -63,9 +62,24 @@ export interface OtelPublisherOptions {
    * attributes that don't match the payload shape one-to-one.
    */
   encode?: (event: CatalogEvent<SchemaMap>) => Record<string, AttrValue>
+  /**
+   * Predicate that decides whether to also call `span.recordException()`
+   * for an event. Linking the exception to the span lets your APM
+   * stitch together "this span errored, here's what." Default: events
+   * whose name ends with `.failed`. Pass `() => false` to disable.
+   *
+   * The exception comes from `event.payload.errorMessage` if present
+   * (the lifecycle wrappers produce this), otherwise the entire
+   * payload is JSON-stringified.
+   */
+  recordExceptionOn?: (event: CatalogEvent<SchemaMap>) => boolean
 }
 
-export type AttrValue = string | number | boolean | Array<string | number | boolean>
+/**
+ * A primitive that's safe to attach as an OTel span-attribute value.
+ * Mirrors `AttributeValue` from `@opentelemetry/api`.
+ */
+export type AttrValue = NonNullable<AttributeValue>
 
 export function otelPublisher<TMap extends SchemaMap>(
   options: OtelPublisherOptions,
@@ -73,6 +87,8 @@ export function otelPublisher<TMap extends SchemaMap>(
   const prefix = options.namePrefix ?? 'spectra.'
   const maxDepth = options.maxDepth ?? 3
   const encode = options.encode ?? ((event) => flatten(event.payload, maxDepth))
+  const recordExceptionOn =
+    options.recordExceptionOn ?? ((event) => String(event.name).endsWith('.failed'))
 
   return {
     name: 'otel',
@@ -85,6 +101,14 @@ export function otelPublisher<TMap extends SchemaMap>(
         encode(event as CatalogEvent<SchemaMap>),
         event.timestamp,
       )
+      if (recordExceptionOn(event as CatalogEvent<SchemaMap>)) {
+        const payload = event.payload as { errorMessage?: unknown } | undefined
+        const message = typeof payload?.errorMessage === 'string'
+          ? payload.errorMessage
+          : JSON.stringify(event.payload)
+
+        span.recordException({ message: message ?? '', name: String(event.name) }, event.timestamp)
+      }
     },
   }
 }
@@ -111,11 +135,7 @@ function flatten(payload: unknown, depth: number, prefix = ''): Record<string, A
       continue
     }
     if (Array.isArray(value)) {
-      const allPrim = value.every((v) => isPrimitive(v))
-
-      out[path] = allPrim
-        ? (value as Array<string | number | boolean>)
-        : (JSON.stringify(value) ?? 'null')
+      out[path] = encodeArray(value)
       continue
     }
     if (typeof value === 'object' && depth > 0) {
@@ -132,6 +152,25 @@ function isPrimitive(v: unknown): v is string | number | boolean {
   const t = typeof v
 
   return t === 'string' || t === 'number' || t === 'boolean'
+}
+
+/**
+ * OTel only accepts *homogeneous* primitive arrays as span attributes
+ * (all-strings, all-numbers, all-booleans). Mixed arrays get
+ * JSON-stringified — they'd otherwise blow up the type and still
+ * lose information at the wire if we coerced.
+ */
+function encodeArray(value: unknown[]): AttrValue {
+  if (value.length === 0) return [] as string[]
+  const first = typeof value[0]
+
+  if (first === 'string' || first === 'number' || first === 'boolean') {
+    if (value.every((v) => typeof v === first)) {
+      return value as string[] | number[] | boolean[]
+    }
+  }
+
+  return JSON.stringify(value) ?? 'null'
 }
 
 function encodeScalar(v: unknown): AttrValue {

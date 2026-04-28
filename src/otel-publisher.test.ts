@@ -10,16 +10,25 @@ const schemas = {
     user: z.object({ id: z.string() }),
   }),
   'demo.simple': z.object({ id: z.string() }),
+  'op.failed': z.object({ errorMessage: z.string() }),
 }
 
 function makeFakeOtel() {
   const addEvent = vi.fn()
-  const span = { addEvent }
-  const trace: OtelTraceApi = {
+  const recordException = vi.fn()
+  // Cast through unknown — we only exercise the methods we need, not the
+  // full Span surface.
+  const span = { addEvent, recordException } as unknown as ReturnType<OtelTraceApi['getActiveSpan']>
+  const trace = {
     getActiveSpan: () => span,
-  }
+  } as unknown as OtelTraceApi
 
-  return { addEvent, trace, withoutSpan: { getActiveSpan: () => undefined } as OtelTraceApi }
+  return {
+    addEvent,
+    recordException,
+    trace,
+    withoutSpan: { getActiveSpan: () => undefined } as unknown as OtelTraceApi,
+  }
 }
 
 describe('otelPublisher', () => {
@@ -59,6 +68,29 @@ describe('otelPublisher', () => {
     catalog.emit('demo.simple', { id: 'a' })
 
     expect(addEvent).toHaveBeenCalledWith('demo.simple', { key: 'demo.simple' }, expect.any(Date))
+  })
+
+  it('records an exception on *.failed events by default', () => {
+    const { addEvent, recordException, trace } = makeFakeOtel()
+    const catalog = defineCatalog(schemas)
+
+    catalog.setPublishers([otelPublisher({ trace })])
+    catalog.emit('op.failed', { errorMessage: 'boom' })
+
+    expect(addEvent).toHaveBeenCalledOnce()
+    expect(recordException).toHaveBeenCalledOnce()
+    const [exc] = recordException.mock.calls[0]!
+    expect(exc).toMatchObject({ message: 'boom', name: 'op.failed' })
+  })
+
+  it('respects a custom recordExceptionOn predicate', () => {
+    const { recordException, trace } = makeFakeOtel()
+    const catalog = defineCatalog(schemas)
+
+    catalog.setPublishers([otelPublisher({ recordExceptionOn: () => false, trace })])
+    catalog.emit('op.failed', { errorMessage: 'boom' })
+
+    expect(recordException).not.toHaveBeenCalled()
   })
 
   it('no-ops when there is no active span', () => {
