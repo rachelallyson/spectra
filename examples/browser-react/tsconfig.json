@@ -8,6 +8,11 @@
     "types": ["vite/client"],
     "paths": {
       "@rachelallyson/spectra": ["../../src/index.ts"],
+      "@rachelallyson/spectra/publishers/node": ["../../src/publishers-node.ts"],
+      "@rachelallyson/spectra/http-publisher": ["../../src/http-publisher.ts"],
+      "@rachelallyson/spectra/publisher-utils": ["../../src/publisher-utils.ts"],
+      "@rachelallyson/spectra/otel": ["../../src/otel-publisher.ts"],
+      "@rachelallyson/spectra/coverage-report": ["../../src/coverage-report.ts"],
       "@rachelallyson/spectra/*": ["../../src/*.ts"],
       "zod": ["../../node_modules/zod"]
     }
